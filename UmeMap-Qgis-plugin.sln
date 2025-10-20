@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36429.23
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "UmeMap", "src\UmeMap\UmeMap.pyproj", "{5D8547B1-D1E1-41A8-9B77-B8FC3D145689}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5D8547B1-D1E1-41A8-9B77-B8FC3D145689}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D8547B1-D1E1-41A8-9B77-B8FC3D145689}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BDBF4EEE-B120-44F7-81DA-5F2C74B7D241}
+	EndGlobalSection
+EndGlobal

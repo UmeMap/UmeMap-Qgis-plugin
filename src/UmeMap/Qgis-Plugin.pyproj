@@ -1,0 +1,112 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{268608b3-b186-42f6-a4fb-353d3018c986}</ProjectGuid>
+    <ProjectHome />
+    <StartupFile>plugin_upload.py</StartupFile>
+    <SearchPath>..\..\..\..\..\..\..\Program Files\QGIS 3.22.4\apps\qgis-ltr\python\qgis</SearchPath>
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <InterpreterId>
+    </InterpreterId>
+    <TestFramework>Pytest</TestFramework>
+    <SuppressConfigureTestFrameworkPrompt>true</SuppressConfigureTestFrameworkPrompt>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
+  <PropertyGroup>
+    <VisualStudioVersion Condition=" '$(VisualStudioVersion)' == '' ">10.0</VisualStudioVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="Deplay\UmeMap\help\genindex.html" />
+    <Content Include="Deplay\UmeMap\help\index.html" />
+    <Content Include="Deplay\UmeMap\help\search.html" />
+    <Content Include="Deplay\UmeMap\help\searchindex.js" />
+    <Content Include="Deplay\UmeMap\help\_sources\index.rst.txt" />
+    <Content Include="Deplay\UmeMap\help\_static\basic.css" />
+    <Content Include="Deplay\UmeMap\help\_static\classic.css" />
+    <Content Include="Deplay\UmeMap\help\_static\default.css" />
+    <Content Include="Deplay\UmeMap\help\_static\doctools.js" />
+    <Content Include="Deplay\UmeMap\help\_static\documentation_options.js" />
+    <Content Include="Deplay\UmeMap\help\_static\file.png" />
+    <Content Include="Deplay\UmeMap\help\_static\jquery-3.6.0.js" />
+    <Content Include="Deplay\UmeMap\help\_static\jquery.js" />
+    <Content Include="Deplay\UmeMap\help\_static\language_data.js" />
+    <Content Include="Deplay\UmeMap\help\_static\minus.png" />
+    <Content Include="Deplay\UmeMap\help\_static\plus.png" />
+    <Content Include="Deplay\UmeMap\help\_static\pygments.css" />
+    <Content Include="Deplay\UmeMap\help\_static\searchtools.js" />
+    <Content Include="Deplay\UmeMap\help\_static\sidebar.js" />
+    <Content Include="Deplay\UmeMap\help\_static\underscore-1.13.1.js" />
+    <Content Include="Deplay\UmeMap\help\_static\underscore.js" />
+    <Content Include="Deplay\UmeMap\help\_static\_sphinx_javascript_frameworks_compat.js" />
+    <Content Include="Deplay\UmeMap\icon.png" />
+    <Content Include="Deplay\UmeMap\metadata.txt" />
+    <Content Include="help\build\html\genindex.html" />
+    <Content Include="help\build\html\index.html" />
+    <Content Include="help\build\html\search.html" />
+    <Content Include="help\build\html\searchindex.js" />
+    <Content Include="help\build\html\_sources\index.rst.txt" />
+    <Content Include="help\build\html\_static\basic.css" />
+    <Content Include="help\build\html\_static\classic.css" />
+    <Content Include="help\build\html\_static\default.css" />
+    <Content Include="help\build\html\_static\doctools.js" />
+    <Content Include="help\build\html\_static\documentation_options.js" />
+    <Content Include="help\build\html\_static\file.png" />
+    <Content Include="help\build\html\_static\jquery-3.6.0.js" />
+    <Content Include="help\build\html\_static\jquery.js" />
+    <Content Include="help\build\html\_static\language_data.js" />
+    <Content Include="help\build\html\_static\minus.png" />
+    <Content Include="help\build\html\_static\plus.png" />
+    <Content Include="help\build\html\_static\pygments.css" />
+    <Content Include="help\build\html\_static\searchtools.js" />
+    <Content Include="help\build\html\_static\sidebar.js" />
+    <Content Include="help\build\html\_static\underscore-1.13.1.js" />
+    <Content Include="help\build\html\_static\underscore.js" />
+    <Content Include="help\build\html\_static\_sphinx_javascript_frameworks_compat.js" />
+    <Content Include="icon.png" />
+    <Content Include="metadata.txt" />
+    <Content Include="README.html" />
+    <Content Include="README.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Deplay\UmeMap\resources.py" />
+    <Compile Include="Deplay\UmeMap\UmeMap.py" />
+    <Compile Include="Deplay\UmeMap\UmeMap_dialog.py" />
+    <Compile Include="Deplay\UmeMap\__init__.py" />
+    <Compile Include="help\source\conf.py" />
+    <Compile Include="plugin_upload.py" />
+    <Compile Include="resources.py" />
+    <Compile Include="test\qgis_interface.py" />
+    <Compile Include="test\test_init.py" />
+    <Compile Include="test\test_qgis_environment.py" />
+    <Compile Include="test\test_resources.py" />
+    <Compile Include="test\test_translations.py" />
+    <Compile Include="test\test_UmeMap_dialog.py" />
+    <Compile Include="test\utilities.py" />
+    <Compile Include="test\__init__.py" />
+    <Compile Include="UmeMap.py" />
+    <Compile Include="UmeMap_dialog.py" />
+    <Compile Include="UmeMap_LayerMenuProvider.py" />
+    <Compile Include="__init__.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Deplay\" />
+    <Folder Include="Deplay\UmeMap" />
+    <Folder Include="Deplay\UmeMap\help" />
+    <Folder Include="Deplay\UmeMap\help\_sources" />
+    <Folder Include="Deplay\UmeMap\help\_static" />
+    <Folder Include="help\" />
+    <Folder Include="help\build\" />
+    <Folder Include="help\build\html" />
+    <Folder Include="help\build\html\_sources" />
+    <Folder Include="help\build\html\_static" />
+    <Folder Include="help\source" />
+    <Folder Include="test" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
+</Project>
