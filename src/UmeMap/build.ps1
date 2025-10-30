@@ -23,6 +23,10 @@ Write-Host "⚙️  Kör pb_tool deploy... detta kan ta en stund..." -Foreground
 pb_tool deploy -y
 Write-Host "✅ pb_tool körning färdig.`n" -ForegroundColor Green
 
+Write-Host "⚙️ Kopiera LICENSE till Deploy mappen"
+Copy-Item ../../LICENSE -Destination ./deploy/UmeMap/
+Write-Host "✅ Kopierat filen" -ForegroundColor Green
+
 # === Skapa zip-fil ===
 Write-Host "📦 Skapar zip-fil..." -ForegroundColor Yellow
 $zipName = "UmeMap-$version.zip"
