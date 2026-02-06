@@ -32,12 +32,19 @@ class StyleActions:
         """
         Register the "Save Style To UmeMap" context menu action.
 
+        Removes any stale actions from a previous plugin instance first
+        to prevent duplicates after reinstalling without restarting QGIS.
+
         :return: The created QAction
         """
+        # Remove any stale action from a previous instance to prevent duplicates
+        self._remove_stale_actions()
+
         self._action = QAction(
             self._tr("Save Style To UmeMap"),
             self.iface.mainWindow()
         )
+        self._action.setObjectName("UmeMapSaveStyleAction")
         self._action.triggered.connect(self._on_save_style)
 
         # Add to vector layer context menu
@@ -49,6 +56,17 @@ class StyleActions:
         )
 
         return self._action
+
+    def _remove_stale_actions(self) -> None:
+        """Remove any orphaned 'Save Style To UmeMap' actions from previous instances."""
+        # First, remove our own action if present
+        self.unregister()
+
+        # Find and remove orphaned actions by objectName from previous instances
+        main_window = self.iface.mainWindow()
+        for action in main_window.findChildren(QAction, "UmeMapSaveStyleAction"):
+            self.iface.removeCustomActionForLayerType(action)
+            action.deleteLater()
 
     def unregister(self) -> None:
         """Remove the context menu action."""

@@ -8,16 +8,18 @@ that come from a UmeMap server and form management.
 
 import os.path
 
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt, QTimer
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 from qgis.core import QgsProject
+from qgis.gui import QgsDockWidget
 
 # Initialize Qt resources from file resources.py
 from .resources import *
 
 # Import modules
 from .style_manager import StyleService, StyleActions
+from .layer_browser import BrowserDock
 from .ui import UmeMapDialog
 
 
@@ -61,6 +63,9 @@ class UmeMap:
         # Initialize services
         self.style_service = StyleService(self.tr)
         self.style_actions = StyleActions(iface, self.tr)
+
+        # Layer browser dock (created in initGui)
+        self.browser_dock = None
 
         # Connect signals
         QgsProject.instance().layerWasAdded.connect(self.style_service.on_layer_added)
@@ -122,10 +127,71 @@ class UmeMap:
         self.actions.append(action)
         return action
 
+    def _cleanup_stale_artifacts(self):
+        """Remove any leftover UI artifacts from a previous plugin installation.
+
+        When a plugin is reinstalled without restarting QGIS, the old unload()
+        may not have run completely, leaving orphaned actions and dock widgets.
+        """
+        main_window = self.iface.mainWindow()
+
+        # Remove stale dock widgets from a previous instance
+        for dock in main_window.findChildren(QgsDockWidget, 'UmeMapLayerBrowserDock'):
+            self.iface.removeDockWidget(dock)
+            dock.deleteLater()
+
+        # Remove stale toolbar icons and menu entries
+        # Find actions by their text to catch orphans from previous instances
+        web_menu = self.iface.webMenu()
+        if web_menu:
+            plugin_menu = None
+            for action in web_menu.actions():
+                menu = action.menu()
+                if menu and self.menu in action.text():
+                    plugin_menu = menu
+                    break
+            if plugin_menu:
+                for action in plugin_menu.actions():
+                    self.iface.removePluginWebMenu(self.menu, action)
+                    self.iface.removeToolBarIcon(action)
+
+    def _toggle_browser_dock(self, checked):
+        """Toggle the layer browser dock visibility."""
+        if self.browser_dock:
+            self.browser_dock.setVisible(checked)
+
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
+        # Clean up any stale artifacts from a previous plugin installation
+        self._cleanup_stale_artifacts()
+
         # Register style management context menu
         self.style_actions.register()
+
+        # Setup layer browser dock widget
+        self.browser_dock = BrowserDock(self.iface)
+        self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.browser_dock)
+        self.browser_dock.hide()
+
+        # Add toggle action for layer browser
+        icon_path = os.path.join(self.plugin_dir, 'icons', 'browser.svg')
+        self.add_action(
+            icon_path,
+            text=self.tr('UmeMap Layer Browser'),
+            callback=self._toggle_browser_dock,
+            parent=self.iface.mainWindow(),
+            add_to_toolbar=True,
+            add_to_menu=True,
+        )
+
+        # Sync action checked state with dock visibility
+        if self.actions:
+            browser_action = self.actions[-1]
+            browser_action.setCheckable(True)
+            self.browser_dock.visibilityChanged.connect(browser_action.setChecked)
+
+        # Deferred loading of saved sources (after event loop starts)
+        QTimer.singleShot(0, self.browser_dock.load_sources)
 
         # Will be set False in run()
         self.first_start = True
@@ -135,12 +201,18 @@ class UmeMap:
         # Unregister style actions
         self.style_actions.unregister()
 
-        # Remove toolbar actions
+        # Remove layer browser dock
+        if self.browser_dock:
+            self.iface.removeDockWidget(self.browser_dock)
+            self.browser_dock.deleteLater()
+            self.browser_dock = None
+
+        # Remove toolbar actions and menu entries
         for action in self.actions:
-            self.iface.removePluginWebMenu(
-                self.tr(u'&UmeMap layer managment'),
-                action)
+            self.iface.removePluginWebMenu(self.menu, action)
             self.iface.removeToolBarIcon(action)
+            action.deleteLater()
+        self.actions.clear()
 
         # Disconnect signals
         try:
