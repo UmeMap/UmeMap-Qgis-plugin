@@ -5,6 +5,7 @@ Uses QgsNetworkAccessManager for async HTTP requests to avoid blocking
 the QGIS UI during WFS GetCapabilities and DescribeFeatureType fetching.
 """
 
+import re
 import sip
 import xml.etree.ElementTree as ET
 from typing import Dict, Optional
@@ -688,13 +689,28 @@ class BrowserDock(QgsDockWidget):
                 self.model.remove_wfs_source(source_id)
                 self._fetch_capabilities(updated_source)
 
+    @staticmethod
+    def _format_description(text: str) -> str:
+        """Format description text: convert newlines to <br/> and URLs to clickable links."""
+        if not text:
+            return 'Ingen beskrivning'
+        # Escape HTML entities first
+        text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        # Convert URLs to clickable links
+        url_pattern = r'(https?://[^\s,)]+)'
+        text = re.sub(url_pattern, r'<a href="\1">\1</a>', text)
+        # Convert newlines to <br/>
+        text = text.replace('\n', '<br/>')
+        return text
+
     def _show_layer_properties(self, index) -> None:
         """Show layer properties dialog."""
         layer_info = self.model.get_layer_info_from_index(index)
         if not layer_info:
             return
 
-        # Simple message box for now
+        description = self._format_description(layer_info['abstract'])
+
         info_text = f"""
 <b>{layer_info['title']}</b><br/>
 <br/>
@@ -703,7 +719,7 @@ class BrowserDock(QgsDockWidget):
 <b>URL:</b> {layer_info['url']}<br/>
 <br/>
 <b>Beskrivning:</b><br/>
-{layer_info['abstract'] or 'Ingen beskrivning'}
+{description}
 """
         QMessageBox.information(self, "Lageregenskaper", info_text)
 
