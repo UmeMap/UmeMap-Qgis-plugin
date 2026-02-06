@@ -32,6 +32,6 @@ def classFactory(iface):  # pylint: disable=invalid-name
     :type iface: QgsInterface
     """
     #
-    from .UmeMap import UmeMap
+    from .plugin import UmeMap
 
     return UmeMap(iface)

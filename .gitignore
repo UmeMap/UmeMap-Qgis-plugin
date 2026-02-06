@@ -209,3 +209,7 @@ __marimo__/
 
 src/UmeMap/deploy
 .vs
+.claude
+.scratch
+.mcp.json
+CLAUDE.md
