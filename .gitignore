@@ -207,10 +207,17 @@ marimo/_lsp/
 __marimo__/
 
 
+# Project-specific
 src/UmeMap/deploy
+src/UmeMap/resources.py
 .vs
 .claude
 .scratch
 .mcp.json
 CLAUDE.md
 nul
+
+# Visual Studio project files
+*.sln
+*.pyproj
+*.pyproj.user
