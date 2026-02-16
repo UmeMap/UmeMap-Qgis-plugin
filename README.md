@@ -1,6 +1,6 @@
 # UmeMap-Qgis-plugin
 
-UmeMap layer managment is a plugin which helps with styles for vector layers that come from a UmeMap server and form management.
+UmeMap layer management is a plugin which helps with styles for vector layers that come from a UmeMap server and form management.
 
 ## Requirements
 
@@ -68,7 +68,7 @@ pip install pb_tool pyqt5 setuptools
 3. Click the **Install from ZIP** tab
 4. Click **Browse** and locate the ZIP file (e.g., `deploy/UmeMap-0.6+20251020.zip`)
 5. Click **Install Plugin**
-6. The plugin will appear under **Plugins** → **UmeMap layer managment**
+6. The plugin will appear under **Plugins** → **UmeMap layer management**
 
 ### Method 2: Manual Installation
 
@@ -83,14 +83,34 @@ pip install pb_tool pyqt5 setuptools
 
 4. Go to **Plugins** → **Manage and Install Plugins...**
 
-5. Find **UmeMap layer managment** in the list and enable it
+5. Find **UmeMap layer management** in the list and enable it
+
+---
+
+## Development
+
+### Quick Deploy
+
+During development, you can quick-deploy the plugin directly to your QGIS plugins folder:
+
+```powershell
+cd src\UmeMap
+.\build.ps1
+# Select [1] Quick deploy to QGIS
+```
+
+### Plugin Reloader
+
+Install **Plugin Reloader** in QGIS (Plugins > Manage and Install Plugins > All > search "Plugin Reloader") to reload UmeMap without restarting QGIS. After a quick deploy, just click the reload button in the toolbar.
+
+> **Note:** Changes to `metadata.txt` and `__init__.py` require a full QGIS restart.
 
 ---
 
 ## Verifying Installation
 
 After installation, you should see:
-- A new menu item under **Plugins** → **UmeMap layer managment**
+- A new menu item under **Plugins** → **UmeMap layer management**
 - Right-click on any WFS vector layer → **Save Style To UmeMap** option
 
 ---
