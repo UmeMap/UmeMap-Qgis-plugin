@@ -9,10 +9,10 @@ from typing import Callable, Optional
 
 from qgis.core import Qgis, QgsMapLayer
 
-from ..core.api_client import UmeMapApiClient, ApiResponse
-from ..core.auth_manager import AuthManager
-from ..core.wfs_utils import parse_wfs_data_source
-from ..ui.utils import log
+from ...core.api_client import UmeMapApiClient, ApiResponse
+from ...core.auth_manager import AuthManager
+from ...core.wfs_utils import parse_wfs_data_source
+from ...ui.utils import log
 
 
 class StyleService:

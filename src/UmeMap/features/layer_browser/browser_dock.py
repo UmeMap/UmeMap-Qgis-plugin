@@ -26,7 +26,7 @@ from qgis.core import (
 from qgis.PyQt.QtNetwork import QNetworkRequest
 from qgis.PyQt.QtCore import QUrl
 
-from ..ui.utils import log
+from ...ui.utils import log
 from .wfs_source import WfsSource
 from .wfs_parser import WfsCapabilitiesParser, WfsLayerInfo, WfsDescribeFeatureTypeParser
 from .layer_tree_model import LayerTreeModel, LayerFilterProxyModel, ItemRole

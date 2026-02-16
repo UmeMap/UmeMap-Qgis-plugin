@@ -18,8 +18,8 @@ from qgis.gui import QgsDockWidget
 from .resources import *
 
 # Import modules
-from .style_manager import StyleService, StyleActions
-from .layer_browser import BrowserDock
+from .features.style_manager import StyleService, StyleActions
+from .features.layer_browser import BrowserDock
 from .ui import UmeMapDialog
 
 

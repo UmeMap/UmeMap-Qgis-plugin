@@ -10,7 +10,7 @@ from qgis.core import Qgis, QgsMapLayerType
 from qgis.utils import iface
 
 from .style_service import StyleService
-from ..ui.utils import show_error_popup
+from ...ui.utils import show_error_popup
 
 
 class StyleActions:

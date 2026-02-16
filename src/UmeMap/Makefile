@@ -7,7 +7,7 @@ PLUGINNAME = UmeMap
 PY_FILES = __init__.py plugin.py
 UI_FILES = UmeMap_dialog_base.ui
 EXTRAS = metadata.txt icon.png
-EXTRA_DIRS = core style_manager ui layer_browser icons
+EXTRA_DIRS = core features ui icons
 COMPILED_RESOURCE_FILES = resources.py
 RESOURCE_SRC = $(shell grep '^ *<file' resources.qrc | sed 's@</file>@@g;s/.*>//g' | tr '\n' ' ')
 

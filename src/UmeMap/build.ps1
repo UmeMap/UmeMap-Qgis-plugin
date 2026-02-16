@@ -75,7 +75,7 @@ function Deploy-ToQgis {
         if (Test-Path $file) { Copy-Item $file -Destination $qgisPluginPath }
     }
 
-    $dirs = @("core", "style_manager", "ui", "layer_browser", "icons")
+    $dirs = @("core", "features", "ui", "icons")
     foreach ($dir in $dirs) {
         if (Test-Path $dir) {
             Copy-Item $dir -Destination $qgisPluginPath -Recurse -Force

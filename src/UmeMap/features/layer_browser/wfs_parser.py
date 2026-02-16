@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 import re
 
-from ..ui.utils import log
+from ...ui.utils import log
 
 
 @dataclass
