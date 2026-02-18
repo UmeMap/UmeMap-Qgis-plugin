@@ -46,19 +46,19 @@ class SourceDialog(QDialog):
 
     def _setup_ui(self) -> None:
         """Setup the dialog UI."""
-        self.setWindowTitle("Lägg till WFS-källa" if not self.source else "Redigera WFS-källa")
+        self.setWindowTitle("Add WFS source" if not self.source else "Edit WFS source")
         self.setMinimumWidth(450)
 
         layout = QVBoxLayout(self)
 
         # Connection details group
-        connection_group = QGroupBox("Anslutningsdetaljer")
+        connection_group = QGroupBox("Connection details")
         form_layout = QFormLayout(connection_group)
 
         # Name input
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("T.ex. UmeMap WFS")
-        form_layout.addRow("Namn:", self.name_input)
+        self.name_input.setPlaceholderText("e.g. UmeMap WFS")
+        form_layout.addRow("Name:", self.name_input)
 
         # URL input
         self.url_input = QLineEdit()
@@ -69,19 +69,19 @@ class SourceDialog(QDialog):
         self.version_combo = QComboBox()
         self.version_combo.addItems(["2.0.0", "1.1.0", "1.0.0"])
         self.version_combo.setToolTip(
-            "WFS 2.0.0 rekommenderas för stöd av keywords/mapphierarki"
+            "WFS 2.0.0 recommended for keyword/folder hierarchy support"
         )
         form_layout.addRow("Version:", self.version_combo)
 
         layout.addWidget(connection_group)
 
         # Authentication group
-        auth_group = QGroupBox("Autentisering")
+        auth_group = QGroupBox("Authentication")
         auth_layout = QVBoxLayout(auth_group)
 
         auth_label = QLabel(
-            "Välj en sparad autentiseringskonfiguration eller lämna tomt för "
-            "anonyma anslutningar."
+            "Select a saved authentication configuration or leave empty for "
+            "anonymous connections."
         )
         auth_label.setWordWrap(True)
         auth_layout.addWidget(auth_label)
@@ -95,7 +95,7 @@ class SourceDialog(QDialog):
         test_layout = QHBoxLayout()
         test_layout.addStretch()
 
-        self.test_button = QPushButton("Testa anslutning")
+        self.test_button = QPushButton("Test connection")
         self.test_button.clicked.connect(self._test_connection)
         test_layout.addWidget(self.test_button)
 
@@ -148,12 +148,12 @@ class SourceDialog(QDialog):
         url = self.url_input.text().strip()
 
         if not name:
-            QMessageBox.warning(self, "Validering", "Namn krävs.")
+            QMessageBox.warning(self, "Validation", "Name is required.")
             self.name_input.setFocus()
             return False
 
         if not url:
-            QMessageBox.warning(self, "Validering", "URL krävs.")
+            QMessageBox.warning(self, "Validation", "URL is required.")
             self.url_input.setFocus()
             return False
 
@@ -161,8 +161,8 @@ class SourceDialog(QDialog):
         if not url.startswith(('http://', 'https://')):
             QMessageBox.warning(
                 self,
-                "Validering",
-                "URL måste börja med http:// eller https://"
+                "Validation",
+                "URL must start with http:// or https://"
             )
             self.url_input.setFocus()
             return False
@@ -207,7 +207,7 @@ class SourceDialog(QDialog):
         """Test the WFS connection."""
         url = self.url_input.text().strip()
         if not url:
-            self.test_status.setText("Ange URL först")
+            self.test_status.setText("Enter URL first")
             return
 
         version = self.version_combo.currentText()
@@ -218,7 +218,7 @@ class SourceDialog(QDialog):
         test_url = f"{url}{separator}SERVICE=WFS&REQUEST=GetCapabilities&VERSION={version}"
 
         self.test_button.setEnabled(False)
-        self.test_status.setText("Testar...")
+        self.test_status.setText("Testing...")
 
         # Create request
         request = QNetworkRequest(QUrl(test_url))
@@ -254,7 +254,7 @@ class SourceDialog(QDialog):
 
         if reply.error():
             error_msg = reply.errorString()
-            self.test_status.setText(f"Fel: {error_msg[:50]}")
+            self.test_status.setText(f"Error: {error_msg[:50]}")
             self.test_status.setStyleSheet("color: red;")
             reply.deleteLater()
             return
@@ -264,8 +264,8 @@ class SourceDialog(QDialog):
         reply.deleteLater()
 
         if b'WFS_Capabilities' in content or b'FeatureTypeList' in content:
-            self.test_status.setText("Anslutningen lyckades!")
+            self.test_status.setText("Connection successful!")
             self.test_status.setStyleSheet("color: green;")
         else:
-            self.test_status.setText("Inget giltigt WFS-svar")
+            self.test_status.setText("Not a valid WFS response")
             self.test_status.setStyleSheet("color: orange;")

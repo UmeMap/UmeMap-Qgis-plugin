@@ -182,7 +182,7 @@ class BrowserDock(QgsDockWidget):
         search_layout.setContentsMargins(4, 4, 4, 4)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Sök lager...")
+        self.search_input.setPlaceholderText("Search layers...")
         self.search_input.setClearButtonEnabled(True)
         search_layout.addWidget(self.search_input)
 
@@ -198,7 +198,7 @@ class BrowserDock(QgsDockWidget):
         layout.addWidget(self.tree_view)
 
         # Status bar
-        self.status_label = QLabel("Klar")
+        self.status_label = QLabel("Ready")
         self.status_label.setStyleSheet("padding: 4px;")
         layout.addWidget(self.status_label)
 
@@ -207,20 +207,20 @@ class BrowserDock(QgsDockWidget):
     def _setup_actions(self) -> None:
         """Setup toolbar actions."""
         # Add source action
-        self.action_add_source = QAction("Lägg till källa", self)
-        self.action_add_source.setToolTip("Lägg till en ny WFS-källa")
+        self.action_add_source = QAction("Add source", self)
+        self.action_add_source.setToolTip("Add a new WFS source")
         self.toolbar.addAction(self.action_add_source)
 
         # Remove source action
-        self.action_remove_source = QAction("Ta bort källa", self)
-        self.action_remove_source.setToolTip("Ta bort vald WFS-källa")
+        self.action_remove_source = QAction("Remove source", self)
+        self.action_remove_source.setToolTip("Remove selected WFS source")
         self.toolbar.addAction(self.action_remove_source)
 
         self.toolbar.addSeparator()
 
         # Refresh action
-        self.action_refresh = QAction("Uppdatera", self)
-        self.action_refresh.setToolTip("Uppdatera alla källor")
+        self.action_refresh = QAction("Refresh", self)
+        self.action_refresh.setToolTip("Refresh all sources")
         self.toolbar.addAction(self.action_refresh)
 
     def _setup_icons(self) -> None:
@@ -266,10 +266,10 @@ class BrowserDock(QgsDockWidget):
         sources = self.settings.load_sources()
 
         if not sources:
-            self._update_status("Inga källor konfigurerade")
+            self._update_status("No sources configured")
             return
 
-        self._update_status(f"Laddar {len(sources)} källa(or)...")
+        self._update_status(f"Loading {len(sources)} source(s)...")
 
         for source in sources:
             if source.enabled:
@@ -336,7 +336,7 @@ class BrowserDock(QgsDockWidget):
         if reply.error():
             error_msg = reply.errorString()
             log(f"[Layer Browser] Error fetching {source.name}: {error_msg}")
-            self._update_status(f"Fel: {source.name} - {error_msg}")
+            self._update_status(f"Error: {source.name} - {error_msg}")
             reply.deleteLater()
             return
 
@@ -352,7 +352,7 @@ class BrowserDock(QgsDockWidget):
 
         # Update status
         layer_count = len(layers)
-        self._update_status(f"{source.name}: {layer_count} lager laddade")
+        self._update_status(f"{source.name}: {layer_count} layers loaded")
 
         # Expand source node if setting is enabled
         if self.settings.get_expand_on_start():
@@ -516,8 +516,8 @@ class BrowserDock(QgsDockWidget):
         # Confirm deletion
         result = QMessageBox.question(
             self,
-            "Ta bort källa",
-            f"Vill du ta bort källan '{source_name}'?",
+            "Remove source",
+            f"Do you want to remove the source '{source_name}'?",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -526,7 +526,7 @@ class BrowserDock(QgsDockWidget):
             self.settings.remove_source(source_id)
             self.model.remove_wfs_source(source_id)
             self.parser.clear_cache()
-            self._update_status(f"Källa '{source_name}' borttagen")
+            self._update_status(f"Source '{source_name}' removed")
 
     def _on_refresh_all(self) -> None:
         """Handle refresh all action."""
@@ -534,7 +534,7 @@ class BrowserDock(QgsDockWidget):
         self.model.clear()
 
         sources = self.settings.load_sources()
-        self._update_status(f"Uppdaterar {len(sources)} källa(or)...")
+        self._update_status(f"Refreshing {len(sources)} source(s)...")
 
         for source in sources:
             if source.enabled:
@@ -567,28 +567,28 @@ class BrowserDock(QgsDockWidget):
         menu = QMenu(self)
 
         if item_type == 'layer':
-            action_add = menu.addAction("Lägg till på kartan")
+            action_add = menu.addAction("Add to map")
             action_add.triggered.connect(lambda: self._add_layer_to_map(source_index))
 
             menu.addSeparator()
 
-            action_props = menu.addAction("Egenskaper...")
+            action_props = menu.addAction("Properties...")
             action_props.triggered.connect(lambda: self._show_layer_properties(source_index))
 
         elif item_type == 'folder':
-            action_add_all = menu.addAction("Lägg till alla lager")
+            action_add_all = menu.addAction("Add all layers")
             action_add_all.triggered.connect(lambda: self._add_folder_layers(source_index))
 
         elif item_type == 'source':
-            action_refresh = menu.addAction("Uppdatera")
+            action_refresh = menu.addAction("Refresh")
             action_refresh.triggered.connect(lambda: self._refresh_source(source_index))
 
             menu.addSeparator()
 
-            action_edit = menu.addAction("Redigera...")
+            action_edit = menu.addAction("Edit...")
             action_edit.triggered.connect(lambda: self._edit_source(source_index))
 
-            action_remove = menu.addAction("Ta bort")
+            action_remove = menu.addAction("Remove")
             action_remove.triggered.connect(self._on_remove_source)
 
         if not menu.isEmpty():
@@ -626,14 +626,14 @@ class BrowserDock(QgsDockWidget):
 
         if layer.isValid():
             QgsProject.instance().addMapLayer(layer)
-            self._update_status(f"Lade till: {layer_info['title']}")
+            self._update_status(f"Added: {layer_info['title']}")
             self.layer_added.emit(layer_info['title'])
         else:
             QMessageBox.warning(
                 self,
-                "Fel",
-                f"Kunde inte lägga till lagret '{layer_info['title']}'.\n"
-                "Kontrollera anslutningen och försök igen."
+                "Error",
+                f"Could not add layer '{layer_info['title']}'.\n"
+                "Check the connection and try again."
             )
 
     def _add_folder_layers(self, folder_index) -> None:
@@ -654,7 +654,7 @@ class BrowserDock(QgsDockWidget):
                 self._add_folder_layers(child_index)
 
         if added > 0:
-            self._update_status(f"Lade till {added} lager")
+            self._update_status(f"Added {added} layers")
 
     def _refresh_source(self, index) -> None:
         """Refresh a single source."""
@@ -693,7 +693,7 @@ class BrowserDock(QgsDockWidget):
     def _format_description(text: str) -> str:
         """Format description text: convert newlines to <br/> and URLs to clickable links."""
         if not text:
-            return 'Ingen beskrivning'
+            return 'No description'
         # Escape HTML entities first
         text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         # Convert URLs to clickable links
@@ -714,14 +714,14 @@ class BrowserDock(QgsDockWidget):
         info_text = f"""
 <b>{layer_info['title']}</b><br/>
 <br/>
-<b>Namn:</b> {layer_info['name']}<br/>
+<b>Name:</b> {layer_info['name']}<br/>
 <b>CRS:</b> {layer_info['crs']}<br/>
 <b>URL:</b> {layer_info['url']}<br/>
 <br/>
-<b>Beskrivning:</b><br/>
+<b>Description:</b><br/>
 {description}
 """
-        QMessageBox.information(self, "Lageregenskaper", info_text)
+        QMessageBox.information(self, "Layer properties", info_text)
 
     def _update_status(self, message: str) -> None:
         """Update status bar message."""
