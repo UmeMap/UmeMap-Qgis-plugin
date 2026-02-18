@@ -2,9 +2,9 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>5d8547b1-d1e1-41a8-9b77-b8fc3d145689</ProjectGuid>
+    <ProjectGuid>B6E58C86-4F88-4220-A7DE-778E87FC98AE</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>UmeMap.py</StartupFile>
+    <StartupFile>plugin.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -21,8 +21,28 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="plugin_upload.py" />
+    <Compile Include="__init__.py" />
+    <Compile Include="plugin.py" />
     <Compile Include="resources.py" />
+    <Compile Include="core\__init__.py" />
+    <Compile Include="core\api_client.py" />
+    <Compile Include="core\auth_manager.py" />
+    <Compile Include="core\wfs_utils.py" />
+    <Compile Include="features\__init__.py" />
+    <Compile Include="features\layer_browser\__init__.py" />
+    <Compile Include="features\layer_browser\browser_dock.py" />
+    <Compile Include="features\layer_browser\layer_tree_model.py" />
+    <Compile Include="features\layer_browser\settings_manager.py" />
+    <Compile Include="features\layer_browser\source_dialog.py" />
+    <Compile Include="features\layer_browser\wfs_parser.py" />
+    <Compile Include="features\layer_browser\wfs_source.py" />
+    <Compile Include="features\style_manager\__init__.py" />
+    <Compile Include="features\style_manager\style_actions.py" />
+    <Compile Include="features\style_manager\style_service.py" />
+    <Compile Include="ui\__init__.py" />
+    <Compile Include="ui\dialogs.py" />
+    <Compile Include="ui\utils.py" />
+    <Compile Include="test\__init__.py" />
     <Compile Include="test\qgis_interface.py" />
     <Compile Include="test\test_init.py" />
     <Compile Include="test\test_qgis_environment.py" />
@@ -30,46 +50,29 @@
     <Compile Include="test\test_translations.py" />
     <Compile Include="test\test_UmeMap_dialog.py" />
     <Compile Include="test\utilities.py" />
-    <Compile Include="test\__init__.py" />
-    <Compile Include="UmeMap.py" />
-    <Compile Include="UmeMap_dialog.py" />
-    <Compile Include="__init__.py" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="build.ps1" />
-    <Content Include="i18n\sv.ts" />
-    <Content Include="icon.png" />
-    <Content Include="Makefile" />
     <Content Include="metadata.txt" />
-    <Content Include="pb_tool.cfg" />
-    <Content Include="pylintrc" />
-    <Content Include="Qgis-Plugin.pyproj" />
-    <Content Include="README.html" />
-    <Content Include="README.txt" />
     <Content Include="resources.qrc" />
-    <Content Include="scripts\compile-strings.sh" />
-    <Content Include="scripts\run-env-linux.sh" />
-    <Content Include="scripts\update-strings.sh" />
-    <Content Include="test\tenbytenraster.asc" />
-    <Content Include="test\tenbytenraster.asc.aux.xml" />
-    <Content Include="test\tenbytenraster.keywords" />
-    <Content Include="test\tenbytenraster.lic" />
-    <Content Include="test\tenbytenraster.prj" />
-    <Content Include="test\tenbytenraster.qml" />
     <Content Include="UmeMap_dialog_base.ui" />
+    <Content Include="pb_tool.cfg" />
+    <Content Include="Makefile" />
+    <Content Include="build.ps1" />
+    <Content Include="icon.png" />
+    <Content Include="icons\add.svg" />
+    <Content Include="icons\browser.svg" />
+    <Content Include="icons\folder.svg" />
+    <Content Include="icons\layer_vector.svg" />
+    <Content Include="icons\refresh.svg" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="i18n\" />
-    <Folder Include="scripts\" />
+    <Folder Include="core\" />
+    <Folder Include="features\" />
+    <Folder Include="features\layer_browser\" />
+    <Folder Include="features\style_manager\" />
+    <Folder Include="icons\" />
     <Folder Include="test\" />
+    <Folder Include="ui\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
-  <!-- Uncomment the CoreCompile target to enable the Build command in
-       Visual Studio and specify your pre- and post-build commands in
-       the BeforeBuild and AfterBuild targets below. -->
-  <!--<Target Name="CoreCompile" />-->
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
 </Project>

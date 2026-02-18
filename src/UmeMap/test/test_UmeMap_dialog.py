@@ -1,22 +1,18 @@
 # coding=utf-8
 """Dialog test.
 
-.. note:: This program is free software; you can redistribute it and/or modify
-     it under the terms of the GNU General Public License as published by
-     the Free Software Foundation; either version 2 of the License, or
-     (at your option) any later version.
-
+Copyright (c) 2022-2026 UmeMap - MIT License
 """
 
 __author__ = 'marcus.lindh@umea.se'
 __date__ = '2022-06-10'
-__copyright__ = 'Copyright 2022, UmeMap'
+__copyright__ = 'Copyright 2022-2026, UmeMap'
 
 import unittest
 
-from qgis.PyQt.QtGui import QDialogButtonBox, QDialog
+from qgis.PyQt.QtWidgets import QDialogButtonBox, QDialog
 
-from UmeMap_dialog import UmeMapDialog
+from UmeMap.ui.dialogs import UmeMapDialog
 
 from utilities import get_qgis_app
 QGIS_APP = get_qgis_app()
@@ -35,7 +31,6 @@ class UmeMapDialogTest(unittest.TestCase):
 
     def test_dialog_ok(self):
         """Test we can click OK."""
-
         button = self.dialog.button_box.button(QDialogButtonBox.Ok)
         button.click()
         result = self.dialog.result()
@@ -52,4 +47,3 @@ if __name__ == "__main__":
     suite = unittest.makeSuite(UmeMapDialogTest)
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)
-
