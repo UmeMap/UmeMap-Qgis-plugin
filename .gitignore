@@ -217,7 +217,5 @@ src/UmeMap/resources.py
 CLAUDE.md
 nul
 
-# Visual Studio project files
-*.sln
-*.pyproj
+# Visual Studio user settings (keep .sln and .pyproj in repo)
 *.pyproj.user
