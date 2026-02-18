@@ -4,9 +4,24 @@ UmeMap layer management is a QGIS plugin for managing styles and configurations 
 
 ## Features
 
-- **Layer Browser** - Dockable panel for browsing WFS layers organized by keyword hierarchy, with search, filtering and drag-and-drop support
-- **Style Management** - Automatically load and save QML styles from/to UmeMap servers
-- **Authentication** - Integrates with QGIS authentication manager for secure WFS connections
+### Layer Browser
+
+Dockable panel for browsing WFS layers organized by keyword hierarchy, with search, filtering and drag-and-drop support.
+
+![Layer Browser tree](docs/images/layer-browser-tree.png)
+![Add WFS source dialog](docs/images/layer-browser-add-source.png)
+![Search and filter layers](docs/images/layer-browser-search.png)
+
+### Style Management
+
+Automatically load and save QML styles from/to UmeMap servers.
+
+![Save style context menu](docs/images/style-context-menu.png)
+![Style save confirmation](docs/images/style-save-confirm.png)
+
+### Authentication
+
+Integrates with QGIS authentication manager for secure WFS connections.
 
 ## Requirements
 
@@ -34,11 +49,13 @@ pip install pb_tool pyqt5 setuptools
 ### Windows (PowerShell)
 
 1. Open PowerShell and navigate to the plugin source folder:
+
    ```powershell
    cd src\UmeMap
    ```
 
 2. Run the build script:
+
    ```powershell
    .\build.ps1
    ```
@@ -51,11 +68,13 @@ pip install pb_tool pyqt5 setuptools
 ### Linux/macOS (Make)
 
 1. Open a terminal and navigate to the plugin source folder:
+
    ```bash
    cd src/UmeMap
    ```
 
 2. Compile resources and create the package:
+
    ```bash
    make compile
    make package
@@ -161,6 +180,7 @@ Install **Plugin Reloader** in QGIS (Plugins > Manage and Install Plugins > All 
 ## Verifying Installation
 
 After installation, you should see:
+
 - A new menu item under **Plugins** → **UmeMap layer management**
 - A toolbar icon for the **Layer Browser** panel
 - Right-click on any WFS vector layer → **Save Style To UmeMap** option
@@ -170,12 +190,15 @@ After installation, you should see:
 ## Troubleshooting
 
 ### Plugin not showing up
+
 - Make sure the plugin is enabled in **Plugins** → **Manage and Install Plugins** → **Installed**
 - Check that the folder structure is correct: `plugins/UmeMap/` (not `plugins/UmeMap/UmeMap/`)
 
 ### Build errors
+
 - Ensure `pb_tool` is installed: `pip show pb_tool`
 - On Windows, run PowerShell as Administrator if you get permission errors
 
 ### Missing dependencies
+
 - Install requests if not present: `pip install requests`
