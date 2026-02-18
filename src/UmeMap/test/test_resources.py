@@ -1,12 +1,12 @@
 # coding=utf-8
 """Resources test.
 
-Copyright (c) 2022 UmeMap - MIT License
+Copyright (c) 2022-2026 UmeMap - MIT License
 """
 
 __author__ = 'marcus.lindh@umea.se'
 __date__ = '2022-06-10'
-__copyright__ = 'Copyright 2022, UmeMap'
+__copyright__ = 'Copyright 2022-2026, UmeMap'
 
 import unittest
 

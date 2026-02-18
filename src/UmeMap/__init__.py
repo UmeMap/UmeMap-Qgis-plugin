@@ -2,7 +2,7 @@
 """
 UmeMap QGIS Plugin - Layer management for UmeMap WFS servers.
 
-Copyright (c) 2022 UmeMap
+Copyright (c) 2022-2026 UmeMap
 Licensed under the MIT License. See LICENSE file for details.
 
 This script initializes the plugin, making it known to QGIS.

@@ -1,6 +1,6 @@
 #/***************************************************************************
 # UmeMap QGIS Plugin
-# Copyright (c) 2022 UmeMap - MIT License
+# Copyright (c) 2022-2026 UmeMap - MIT License
 # ***************************************************************************/
 
 PLUGINNAME = UmeMap
