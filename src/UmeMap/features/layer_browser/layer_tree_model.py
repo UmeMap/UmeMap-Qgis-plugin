@@ -267,12 +267,19 @@ class LayerTreeModel(QStandardItemModel):
         return item
 
     def _get_geometry_icon(self, geometry_type: str) -> QIcon:
-        """Get QGIS icon for a geometry type."""
-        icon_path = WfsDescribeFeatureTypeParser.geometry_type_to_icon_path(geometry_type)
-        icon = QgsApplication.getThemeIcon(icon_path)
-        if icon.isNull() and 'layer' in self._icons:
-            return self._icons['layer']
-        return icon
+        """Get Material Symbol icon for a geometry type."""
+        icon_map = {
+            'Point': 'point',
+            'MultiPoint': 'point',
+            'LineString': 'line',
+            'MultiLineString': 'line',
+            'Polygon': 'polygon',
+            'MultiPolygon': 'polygon',
+        }
+        icon_key = icon_map.get(geometry_type, 'layer')
+        if icon_key in self._icons:
+            return self._icons[icon_key]
+        return self._icons.get('layer', QIcon())
 
     def update_layer_geometry_type(self, layer_name: str, geometry_type: str) -> None:
         """
