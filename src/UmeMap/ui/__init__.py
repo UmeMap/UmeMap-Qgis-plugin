@@ -2,10 +2,12 @@
 """UI components for UmeMap plugin."""
 
 from .dialogs import UmeMapDialog
-from .utils import show_error_popup, log
+from .utils import show_error_popup, show_success_popup, show_popup, log
 
 __all__ = [
     'UmeMapDialog',
     'show_error_popup',
+    'show_success_popup',
+    'show_popup',
     'log',
 ]

@@ -5,6 +5,7 @@ Uses QgsNetworkAccessManager for async HTTP requests to avoid blocking
 the QGIS UI during WFS GetCapabilities and DescribeFeatureType fetching.
 """
 
+import os
 import re
 import sip
 import xml.etree.ElementTree as ET
@@ -224,28 +225,24 @@ class BrowserDock(QgsDockWidget):
         self.toolbar.addAction(self.action_refresh)
 
     def _setup_icons(self) -> None:
-        """Setup icons for actions and tree items."""
-        # Use QGIS built-in icons where available
-        icons = {
-            'source': QgsApplication.getThemeIcon('/mIconWfs.svg'),
-            'folder': QgsApplication.getThemeIcon('/mIconFolder.svg'),
-            'layer': QgsApplication.getThemeIcon('/mIconVector.svg'),
-        }
+        """Setup Material Symbols icons for actions and tree items."""
+        icons_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'icons')
 
-        # Fallback icons if QGIS icons not found
-        if icons['source'].isNull():
-            icons['source'] = QIcon.fromTheme('network-server')
-        if icons['folder'].isNull():
-            icons['folder'] = QIcon.fromTheme('folder')
-        if icons['layer'].isNull():
-            icons['layer'] = QIcon.fromTheme('text-x-generic')
+        icons = {
+            'source': QIcon(os.path.join(icons_dir, 'source.svg')),
+            'folder': QIcon(os.path.join(icons_dir, 'folder.svg')),
+            'layer': QIcon(os.path.join(icons_dir, 'layer_vector.svg')),
+            'point': QIcon(os.path.join(icons_dir, 'point.svg')),
+            'line': QIcon(os.path.join(icons_dir, 'line.svg')),
+            'polygon': QIcon(os.path.join(icons_dir, 'polygon.svg')),
+        }
 
         self.model.set_icons(icons)
 
         # Action icons
-        self.action_add_source.setIcon(QgsApplication.getThemeIcon('/mActionAdd.svg'))
-        self.action_remove_source.setIcon(QgsApplication.getThemeIcon('/mActionRemove.svg'))
-        self.action_refresh.setIcon(QgsApplication.getThemeIcon('/mActionRefresh.svg'))
+        self.action_add_source.setIcon(QIcon(os.path.join(icons_dir, 'add.svg')))
+        self.action_remove_source.setIcon(QIcon(os.path.join(icons_dir, 'remove.svg')))
+        self.action_refresh.setIcon(QIcon(os.path.join(icons_dir, 'refresh.svg')))
 
     def _connect_signals(self) -> None:
         """Connect signals and slots."""

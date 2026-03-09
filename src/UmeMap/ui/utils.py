@@ -14,8 +14,29 @@ def show_error_popup(title: str, message: str) -> None:
     :param title: Dialog title
     :param message: Error message to display
     """
+    show_popup(title, message, QMessageBox.Critical)
+
+
+def show_success_popup(title: str, message: str) -> None:
+    """
+    Display a success/info popup dialog.
+
+    :param title: Dialog title
+    :param message: Success message to display
+    """
+    show_popup(title, message, QMessageBox.Information)
+
+
+def show_popup(title: str, message: str, icon=QMessageBox.Information) -> None:
+    """
+    Display a popup dialog with the given icon type.
+
+    :param title: Dialog title
+    :param message: Message to display
+    :param icon: QMessageBox icon type (Information, Warning, Critical, Question)
+    """
     msg_box = QMessageBox()
-    msg_box.setIcon(QMessageBox.Critical)
+    msg_box.setIcon(icon)
     msg_box.setWindowTitle(title)
     msg_box.setText(message)
     msg_box.exec_()
