@@ -7,7 +7,7 @@ import os
 import tempfile
 from typing import Callable, List, Optional, Set
 
-from qgis.core import Qgis, QgsDataSourceUri, QgsMapLayer, QgsProject, QgsVectorLayer
+from qgis.core import Qgis, QgsApplication, QgsDataSourceUri, QgsMapLayer, QgsProject, QgsTask, QgsVectorLayer
 from qgis.PyQt.QtXml import QDomDocument
 
 from ...core.api_client import UmeMapApiClient, ApiResponse
@@ -220,7 +220,9 @@ class StyleService:
             style_doc = QDomDocument("qgis")
             layer.exportNamedStyle(style_doc)
 
-            # Find all editWidget elements with type="ValueRelation"
+            # Find all editWidget elements with type="ValueRelation".
+            # UmeMapCodeListSearch widgets are intentionally skipped here -
+            # they query the server directly and don't need WFS lookup layers.
             edit_widgets = style_doc.elementsByTagName("editWidget")
             for i in range(edit_widgets.count()):
                 widget = edit_widgets.at(i).toElement()
@@ -264,13 +266,39 @@ class StyleService:
             # Add as hidden layer (not shown in layer tree by default)
             QgsProject.instance().addMapLayer(codelist_layer, False)
 
-            # Force WFS provider to fetch features so ValueRelation completer works immediately
-            codelist_layer.dataProvider().reloadData()
-            _ = codelist_layer.featureCount()  # Triggers actual data fetch
-            # Materialize features into cache by iterating
-            for _ in codelist_layer.getFeatures():
-                break  # Just need to trigger the fetch, not iterate all
+            # Prefetch features in background so ValueRelation completer works
+            # when user opens a feature form. Without this, the first form open is slow.
+            task = _CodeListPrefetchTask(layer_name, codelist_layer)
+            QgsApplication.taskManager().addTask(task)
 
-            log(f"Auto-loaded CodeList layer '{layer_name}' for ValueRelation dropdown.", Qgis.Info)
+            log(f"Auto-loading CodeList layer '{layer_name}' in background...", Qgis.Info)
         else:
             log(f"Failed to load CodeList layer '{layer_name}' from '{wfs_url}'.", Qgis.Warning)
+
+
+class _CodeListPrefetchTask(QgsTask):
+    """Background task that prefetches CodeList features into QGIS WFS cache."""
+
+    def __init__(self, layer_name: str, layer: QgsVectorLayer):
+        super().__init__(f"Laddar kodlista: {layer_name}")
+        self._layer = layer
+        self._layer_name = layer_name
+        self._count = 0
+
+    def run(self) -> bool:
+        """Runs in background thread - iterates all features to populate WFS cache."""
+        try:
+            for _ in self._layer.getFeatures():
+                self._count += 1
+                if self.isCanceled():
+                    return False
+            return True
+        except Exception:
+            return False
+
+    def finished(self, result: bool) -> None:
+        """Called on main thread when task completes."""
+        if result:
+            log(f"CodeList '{self._layer_name}' loaded ({self._count} values).", Qgis.Info)
+        else:
+            log(f"CodeList '{self._layer_name}' prefetch failed or cancelled.", Qgis.Warning)

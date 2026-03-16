@@ -12,7 +12,7 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt, QTime
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 from qgis.core import QgsProject
-from qgis.gui import QgsDockWidget
+from qgis.gui import QgsDockWidget, QgsGui
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -20,6 +20,7 @@ from .resources import *
 # Import modules
 from .features.style_manager import StyleService, StyleActions
 from .features.layer_browser import BrowserDock
+from .features.codelist_widget import UmeMapCodeListWidgetFactory
 from .ui import UmeMapDialog
 
 
@@ -66,6 +67,12 @@ class UmeMap:
 
         # Layer browser dock (created in initGui)
         self.browser_dock = None
+
+        # Register custom editor widget for CodeList search
+        self._codelist_widget_factory = UmeMapCodeListWidgetFactory()
+        QgsGui.editorWidgetRegistry().registerWidget(
+            "UmeMapCodeListSearch", self._codelist_widget_factory
+        )
 
         # Connect signals
         QgsProject.instance().layerWasAdded.connect(self.style_service.on_layer_added)
