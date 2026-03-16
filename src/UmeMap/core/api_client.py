@@ -63,7 +63,12 @@ class UmeMapApiClient:
                 return None
 
             style_doc = QDomDocument("qgis")
-            if not style_doc.setContent(response.content):
+            result = style_doc.setContent(response.content)
+            # setContent returns (success, errorMsg, errorLine, errorColumn)
+            if isinstance(result, tuple):
+                if not result[0]:
+                    return None
+            elif not result:
                 return None
 
             return style_doc

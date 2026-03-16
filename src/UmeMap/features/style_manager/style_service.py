@@ -5,9 +5,10 @@ Style Service - Handles saving and loading styles from UmeMap server.
 
 import os
 import tempfile
-from typing import Callable, Optional
+from typing import Callable, List, Optional, Set
 
-from qgis.core import Qgis, QgsMapLayer
+from qgis.core import Qgis, QgsDataSourceUri, QgsMapLayer, QgsProject, QgsVectorLayer
+from qgis.PyQt.QtXml import QDomDocument
 
 from ...core.api_client import UmeMapApiClient, ApiResponse
 from ...core.auth_manager import AuthManager
@@ -86,10 +87,12 @@ class StyleService:
         wfs_url, layer_name = parse_wfs_data_source(layer)
 
         if not wfs_url or not layer_name:
+            log(f"Could not parse WFS data source for '{layer.name()}' (url={wfs_url}, typename={layer_name}).", Qgis.Warning)
             return False
 
         # Check if server is UmeMap
         if not UmeMapApiClient.is_umemap_server(wfs_url):
+            log(f"Server '{wfs_url}' is not a UmeMap server.", Qgis.Warning)
             return False
 
         # Get auth headers and fetch style
@@ -98,6 +101,7 @@ class StyleService:
 
         style_doc = client.get_vector_style(layer_name)
         if not style_doc:
+            log(f"Could not fetch style for '{layer_name}' from '{wfs_url}'.", Qgis.Warning)
             return False
 
         return self.apply_style_to_layer(layer, style_doc)
@@ -146,6 +150,10 @@ class StyleService:
         if not wfs_url or not layer_name:
             return False
 
+        # Skip CodeList lookup layers (auto-loaded for ValueRelation)
+        if layer_name.startswith("CodeList_"):
+            return False
+
         if not UmeMapApiClient.is_umemap_server(wfs_url):
             return False
 
@@ -154,12 +162,115 @@ class StyleService:
     def on_layer_added(self, layer: QgsMapLayer) -> None:
         """
         Event handler for when a layer is added to the project.
-        Applies UmeMap style if appropriate.
+        Applies UmeMap style if appropriate, then auto-loads any
+        CodeList lookup layers required by ValueRelation widgets.
 
         :param layer: The layer that was added
         """
         try:
             if self.should_apply_style(layer):
-                self.load_from_server(layer)
+                success = self.load_from_server(layer)
+                if success:
+                    self._ensure_codelist_layers(layer)
+                else:
+                    log(f"Style could not be applied to '{layer.name()}'.", Qgis.Warning)
         except Exception as e:
             log(f"[ERROR] on_layer_added failed for '{layer.name()}': {e}", Qgis.Critical)
+
+    def _ensure_codelist_layers(self, layer: QgsMapLayer) -> None:
+        """
+        Check if the layer's style contains ValueRelation widgets that reference
+        CodeList WFS layers and auto-load any missing ones.
+
+        :param layer: The layer whose style may reference CodeList layers
+        """
+        needed_layers = self._find_codelist_layer_refs(layer)
+        if not needed_layers:
+            return
+
+        # Check which CodeList layers are already loaded
+        project = QgsProject.instance()
+        loaded_names = {l.name() for l in project.mapLayers().values()}
+
+        wfs_url, _ = parse_wfs_data_source(layer)
+        if not wfs_url:
+            return
+
+        ds = QgsDataSourceUri(layer.dataProvider().dataSourceUri())
+        authcfg = ds.authConfigId() or ""
+
+        for codelist_layer_name in needed_layers:
+            if codelist_layer_name in loaded_names:
+                log(f"CodeList layer '{codelist_layer_name}' already loaded.", Qgis.Info)
+                continue
+
+            self._load_codelist_layer(wfs_url, codelist_layer_name, authcfg)
+
+    def _find_codelist_layer_refs(self, layer: QgsMapLayer) -> Set[str]:
+        """
+        Parse the layer's style to find ValueRelation widgets referencing CodeList layers.
+
+        :param layer: Layer to inspect
+        :return: Set of CodeList layer names referenced by ValueRelation widgets
+        """
+        codelist_refs: Set[str] = set()
+
+        try:
+            # Export current style to QDomDocument
+            style_doc = QDomDocument("qgis")
+            layer.exportNamedStyle(style_doc)
+
+            # Find all editWidget elements with type="ValueRelation"
+            edit_widgets = style_doc.elementsByTagName("editWidget")
+            for i in range(edit_widgets.count()):
+                widget = edit_widgets.at(i).toElement()
+                if widget.attribute("type") != "ValueRelation":
+                    continue
+
+                # Find the LayerName option within this widget's config
+                options = widget.elementsByTagName("Option")
+                for j in range(options.count()):
+                    opt = options.at(j).toElement()
+                    if opt.attribute("name") == "LayerName":
+                        layer_name = opt.attribute("value")
+                        if layer_name and layer_name.startswith("CodeList_"):
+                            codelist_refs.add(layer_name)
+
+        except Exception as e:
+            log(f"Error parsing style for ValueRelation refs: {e}", Qgis.Warning)
+
+        return codelist_refs
+
+    def _load_codelist_layer(self, wfs_url: str, layer_name: str, authcfg: str) -> None:
+        """
+        Load a CodeList WFS layer into the project.
+
+        :param wfs_url: WFS server URL
+        :param layer_name: CodeList layer name (e.g. 'CodeList_Artnamn_växter')
+        :param authcfg: QGIS auth config ID
+        """
+        uri_parts = [
+            f"url='{wfs_url}'",
+            f"typename='{layer_name}'",
+            "version='2.0.0'",
+        ]
+        if authcfg:
+            uri_parts.append(f"authcfg='{authcfg}'")
+
+        uri = " ".join(uri_parts)
+
+        codelist_layer = QgsVectorLayer(uri, layer_name, "WFS")
+        if codelist_layer.isValid():
+            # Add as hidden layer (not shown in layer tree by default)
+            QgsProject.instance().addMapLayer(codelist_layer, False)
+
+            # Force WFS provider to fetch features so ValueRelation completer works immediately
+            codelist_layer.dataProvider().reloadData()
+            _ = codelist_layer.featureCount()  # Triggers actual data fetch
+            # Materialize features into cache by iterating
+            for _ in codelist_layer.getFeatures():
+                break  # Just need to trigger the fetch, not iterate all
+
+            log(f"Auto-loaded CodeList layer '{layer_name}' for ValueRelation dropdown.", Qgis.Info)
+        else:
+            log(f"Failed to load CodeList layer '{layer_name}' from '{wfs_url}'.", Qgis.Warning)
