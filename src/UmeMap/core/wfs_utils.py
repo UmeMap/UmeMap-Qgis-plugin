@@ -16,19 +16,14 @@ def parse_wfs_data_source(layer: QgsMapLayer) -> Tuple[Optional[str], Optional[s
     :return: Tuple of (wfs_url, layer_name), both None if parsing fails
     """
     try:
-        ds = QgsDataSourceUri(layer.dataProvider().dataSourceUri())
-        url = str(ds.encodedUri(), 'UTF-8')
+        provider = layer.dataProvider()
+        if not provider:
+            return None, None
 
-        wfs_url = None
-        layer_name = None
+        ds = QgsDataSourceUri(provider.dataSourceUri())
 
-        for value in url.split("&"):
-            vals = value.split("=")
-            if len(vals) >= 2:
-                if vals[0] == "url":
-                    wfs_url = vals[1]
-                elif vals[0] == "typename":
-                    layer_name = vals[1]
+        wfs_url = ds.param("url")
+        layer_name = ds.param("typename")
 
         # Remove possible query parameters from URL
         if wfs_url:
