@@ -128,10 +128,10 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
 
         config = self.config()
         wfs_url = config.get("wfs_url", "")
-        codelist_guid = config.get("codelist_guid", "")
+        codelist_title = config.get("codelist", "")
 
-        if not wfs_url or not codelist_guid:
-            log("UmeMapCodeListSearch: Missing wfs_url or codelist_guid in widget config.")
+        if not wfs_url or not codelist_title:
+            log("UmeMapCodeListSearch: Missing wfs_url or codelist in widget config.")
             return
 
         auth_headers = self._get_auth_headers()
@@ -139,7 +139,7 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         try:
             url = (
                 f"{wfs_url}?REQUEST=SearchCodeList"
-                f"&CODELIST={codelist_guid}"
+                f"&codeListTitle={codelist_title}"
                 f"&Q={text}"
                 f"&LIMIT={self.SEARCH_LIMIT}"
             )
