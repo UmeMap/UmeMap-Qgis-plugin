@@ -4,7 +4,7 @@ CodeList Config Widget - Configuration UI shown in Layer Properties.
 
 This widget is displayed when the user selects UmeMapCodeListSearch
 as the editor widget type in the Layer Properties dialog. The actual
-configuration (wfs_url, codelist_guid) is set by the server via
+configuration (wfs_url, codelist) is set by the server via
 GetVectorStyle, so this config widget is informational only.
 """
 
@@ -28,7 +28,7 @@ class UmeMapCodeListConfigWidget(QgsEditorConfigWidget):
         layout = QVBoxLayout()
         layout.addWidget(QLabel("UmeMap CodeList Search Widget"))
         layout.addWidget(QLabel("Configured via server style (GetVectorStyle)."))
-        layout.addWidget(QLabel("Parameters: wfs_url, codelist_guid"))
+        layout.addWidget(QLabel("Parameters: wfs_url, codelist"))
         self.setLayout(layout)
 
     def config(self):
