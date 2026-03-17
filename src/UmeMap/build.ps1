@@ -27,9 +27,43 @@ if (-not $qgisPluginPath) {
     $qgisPluginPath = Join-Path $qgisPluginPath "UmeMap"
 }
 
-# Läs version
-$meta = Get-Content ".\metadata.txt" | Where-Object { $_ -match '^version=' }
-$version = ($meta -split '=')[1].Trim()
+# Auto-versioning från git-taggar
+$today = Get-Date -Format "yyyyMMdd"
+$latestTag = git describe --tags --abbrev=0 --match "v*" 2>$null
+
+if ($latestTag) {
+    $tagVersion = $latestTag.TrimStart('v')
+    $parts = $tagVersion -split '\.'
+    $major = [int]$parts[0]
+    $minor = [int]$parts[1]
+
+    # Kolla om HEAD är exakt på taggen
+    $tagCommit = git rev-list -n 1 $latestTag
+    $headCommit = git rev-parse HEAD
+    if ($tagCommit -eq $headCommit) {
+        $version = "$major.$minor+$today"
+    } else {
+        $version = "$major.$($minor + 1)+$today"
+    }
+} else {
+    Write-Host "  Ingen v*-tagg hittad. Ange version manuellt i metadata.txt" -ForegroundColor Red
+    exit 1
+}
+
+# Uppdatera metadata.txt med ny version och changelog
+$metaContent = Get-Content ".\metadata.txt" -Raw
+$metaContent = $metaContent -replace '(?m)^version=.*$', "version=$version"
+
+# Generera changelog från commits sedan senaste taggen
+if ($tagCommit -ne $headCommit) {
+    $commits = git log --no-merges "$latestTag..HEAD" --pretty=format:"  - %s" 2>$null
+    if ($commits) {
+        $newEntry = "  $version`n$commits"
+        $metaContent = $metaContent -replace '(?ms)^changelog=.*?(?=\r?\n[#a-z])', "changelog=`n$newEntry"
+    }
+}
+
+Set-Content ".\metadata.txt" -Value $metaContent -NoNewline
 
 Write-Host ""
 Write-Host "  UmeMap Plugin Builder  v$version" -ForegroundColor Cyan
@@ -102,14 +136,30 @@ function Build-Zip {
     Copy-Item ../../LICENSE -Destination ./deploy/UmeMap/
 
     $zipName = "UmeMap-$version.zip"
-    $zipPath = Join-Path "deploy" $zipName
+    $zipPath = $zipName
 
     if (Test-Path $zipPath) {
         Remove-Item $zipPath -Force
     }
 
-    Compress-Archive -Path "deploy\*" -DestinationPath $zipPath -Force
-    Write-Host "  Skapad: $zipPath" -ForegroundColor Green
+    # Compress-Archive saknar directory entries som QGIS kräver, använd Python istället
+    python -c @"
+import zipfile, os
+with zipfile.ZipFile(r'$zipPath', 'w', zipfile.ZIP_DEFLATED) as zf:
+    for root, dirs, files in os.walk('deploy'):
+        for d in dirs:
+            dir_path = os.path.join(root, d)
+            arcname = os.path.relpath(dir_path, 'deploy') + '/'
+            zf.write(dir_path, arcname)
+        for f in files:
+            file_path = os.path.join(root, f)
+            arcname = os.path.relpath(file_path, 'deploy')
+            zf.write(file_path, arcname)
+"@
+
+    # Flytta ZIP till deploy-mappen
+    Move-Item $zipPath "deploy\$zipName"
+    Write-Host "  Skapad: deploy\$zipName" -ForegroundColor Green
 }
 
 switch ($choice) {
