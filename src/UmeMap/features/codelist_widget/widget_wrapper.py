@@ -5,9 +5,14 @@ CodeList Widget Wrapper - Searchable autocomplete for large CodeLists.
 Instead of loading all values upfront (like ValueRelation), this widget
 queries the UmeMap server as the user types, with debounce and lazy-loading.
 Designed for CodeLists with 124k+ entries.
+
+Supports field linking: when two UmeMapCodeListSearch widgets share the same
+CodeList (e.g. Latin name ↔ Swedish name), selecting a value in one widget
+automatically updates the linked widget.
 """
 
-from typing import Dict, Optional
+import json
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -40,6 +45,7 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         self._current_value = None
         self._ignore_text_change = False  # Prevents re-search when completer sets text
         self._last_search_text = ""  # Track what we last searched for
+        self._results_map: Dict[str, Dict[str, Any]] = {}  # title -> full result object
 
     def createWidget(self, parent):
         self._widget = QLineEdit(parent)
@@ -100,6 +106,9 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         self._timer.stop()  # Cancel any pending search
         self.emitValueChanged()  # Notify QGIS that the value changed
 
+        # Update linked fields if configured
+        self._update_linked_fields(text)
+
     def _on_text_changed(self, text: str) -> None:
         """Handle text changes with debounce. Ignores changes from completer navigation."""
         if self._ignore_text_change:
@@ -129,6 +138,7 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         config = self.config()
         wfs_url = config.get("wfs_url", "")
         codelist_title = config.get("codelist", "")
+        column_name = config.get("column_name", "")
 
         if not wfs_url or not codelist_title:
             log("UmeMapCodeListSearch: Missing wfs_url or codelist in widget config.")
@@ -143,6 +153,9 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
                 f"&Q={text}"
                 f"&LIMIT={self.SEARCH_LIMIT}"
             )
+            if column_name:
+                url += f"&columnName={column_name}"
+
             response = requests.get(
                 url,
                 headers=auth_headers,
@@ -152,11 +165,61 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
             if response.status_code == 200:
                 results = response.json()
                 titles = [item["title"] for item in results]
+
+                # Store full result objects for linked field lookups
+                self._results_map = {item["title"]: item for item in results}
+
                 self._model.setStringList(titles)
                 self._last_search_text = text
                 self._completer.complete()
         except Exception as e:
             log(f"UmeMapCodeListSearch: Search failed: {e}")
+
+    def _update_linked_fields(self, selected_title: str) -> None:
+        """Update linked UmeMapCodeListSearch fields when a value is selected."""
+        config = self.config()
+        linked_fields_json = config.get("linked_fields", "")
+        if not linked_fields_json:
+            return
+
+        result = self._results_map.get(selected_title)
+        if not result:
+            return
+
+        linked_values = result.get("linkedValues")
+        if not linked_values:
+            return
+
+        try:
+            linked_fields: List[Dict[str, str]] = json.loads(linked_fields_json)
+        except (json.JSONDecodeError, TypeError):
+            log(f"UmeMapCodeListSearch: Failed to parse linked_fields config: {linked_fields_json}")
+            return
+
+        # Walk up the widget hierarchy to find the feature form
+        form = self._widget
+        while form and not form.objectName().startswith("QgsAttributeForm"):
+            form = form.parentWidget()
+        if not form:
+            # Fallback: use top-level parent
+            form = self._widget.window()
+
+        for link in linked_fields:
+            field_name = link.get("fieldName", "")
+            column_name = link.get("columnName", "")
+            if not field_name or not column_name:
+                continue
+
+            # Resolve the linked value: check alt values first, then primary title
+            linked_value = linked_values.get(column_name) or linked_values.get("__primary__", "")
+
+            if not linked_value:
+                continue
+
+            # Find the sibling widget by its QGIS field name
+            sibling = form.findChild(QLineEdit, field_name)
+            if sibling:
+                sibling.setText(linked_value)
 
     def _get_auth_headers(self) -> Dict[str, str]:
         """Extract authentication headers from the layer's auth configuration."""
