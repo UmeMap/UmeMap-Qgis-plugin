@@ -47,6 +47,8 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         self._last_search_text = ""  # Track what we last searched for
         self._results_map: Dict[str, Dict[str, Any]] = {}  # title -> full result object
         self._valid_value: Optional[str] = None  # Last value selected from list or loaded from DB
+        self._feature_id = None  # Feature ID set by QGIS via setFeature()
+        self._completer_just_activated = False  # True between completer activation and next setValue()
 
     def createWidget(self, parent):
         self._widget = QLineEdit(parent)
@@ -87,10 +89,15 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
             text = self._widget.text()
             if not text or text == "(no selection)":
                 return None
+            # If the completer was recently activated, trust the widget text
+            if self._completer_just_activated:
+                return text
             # Only return the value if it was selected from the list or loaded from DB
             if self._valid_value is not None and text == self._valid_value:
                 return text
             # If text doesn't match a valid value, return the original DB value
+            log(f"UmeMapCodeListSearch: value() falling back to _current_value='{self._current_value}' "
+                f"(text='{text}', _valid_value='{self._valid_value}')")
             return self._current_value
         return None
 
@@ -100,6 +107,7 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
 
     def setValue(self, value):
         self._current_value = value
+        self._completer_just_activated = False  # Reset on new value from QGIS
         text = str(value) if value and str(value) != "NULL" else ""
         self._valid_value = text if text else None
         if self._widget:
@@ -108,16 +116,32 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
             self._widget.setStyleSheet("")
             self._ignore_text_change = False
 
+    def setFeature(self, feature):
+        """Called by QGIS when the widget is associated with a feature (form and table mode)."""
+        super().setFeature(feature)
+        self._feature_id = feature.id() if feature and feature.isValid() else None
+        log(f"UmeMapCodeListSearch: setFeature called, feature_id={self._feature_id}")
+
     def _on_completer_activated(self, text: str) -> None:
         """Called when user selects an item from the completer popup (Enter or click)."""
         self._ignore_text_change = True
         self._valid_value = text
+        self._completer_just_activated = True
         if self._widget:
             self._widget.setText(text)
             self._widget.setStyleSheet("")
         self._ignore_text_change = False
         self._timer.stop()  # Cancel any pending search
         self.emitValueChanged()  # Notify QGIS that the value changed
+
+        # In attribute table mode, also write own value directly to the edit buffer.
+        # QGIS may call value() after the widget is destroyed/reset, getting wrong value.
+        layer = self.layer()
+        if layer and layer.isEditable() and self._feature_id is not None:
+            my_field_idx = self.fieldIdx()
+            if my_field_idx >= 0:
+                layer.changeAttributeValue(self._feature_id, my_field_idx, text)
+                log(f"UmeMapCodeListSearch: Wrote own value '{text}' to edit buffer (fid={self._feature_id}, field={my_field_idx})")
 
         # Update linked fields if configured
         self._update_linked_fields(text)
@@ -143,6 +167,16 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         if not self._widget or self._ignore_text_change:
             return
 
+        # If completer was just activated, trust that value — don't invalidate
+        if self._completer_just_activated:
+            return
+
+        # If completer popup is visible or has a current selection, Enter will trigger
+        # editingFinished BEFORE activated. Don't invalidate yet — activated will follow.
+        if (self._completer and self._completer.popup()
+                and self._completer.popup().isVisible()):
+            return
+
         text = self._widget.text()
         if not text:
             # Empty is fine - clear validation state
@@ -153,6 +187,15 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         if self._valid_value is not None and text == self._valid_value:
             # Text matches a valid value - all good
             self._widget.setStyleSheet("")
+            return
+
+        # Check if text matches any result from the last search (user typed exact match)
+        if text in self._results_map:
+            self._valid_value = text
+            self._completer_just_activated = True
+            self._widget.setStyleSheet("")
+            self.emitValueChanged()
+            self._update_linked_fields(text)
             return
 
         # Text doesn't match a valid value - mark as invalid with red border
@@ -219,14 +262,17 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         config = self.config()
         linked_fields_json = config.get("linked_fields", "")
         if not linked_fields_json:
+            log(f"UmeMapCodeListSearch: No linked_fields config, skipping")
             return
 
         result = self._results_map.get(selected_title)
         if not result:
+            log(f"UmeMapCodeListSearch: No result found for '{selected_title}' in results_map (keys: {list(self._results_map.keys())[:5]})")
             return
 
         linked_values = result.get("linkedValues")
         if not linked_values:
+            log(f"UmeMapCodeListSearch: No linkedValues in result for '{selected_title}'")
             return
 
         try:
@@ -235,13 +281,24 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
             log(f"UmeMapCodeListSearch: Failed to parse linked_fields config: {linked_fields_json}")
             return
 
-        # Walk up the widget hierarchy to find the feature form
+        log(f"UmeMapCodeListSearch: Updating linked fields for '{selected_title}', "
+            f"linked_fields={linked_fields}, linkedValues keys={list(linked_values.keys())}")
+
+        # Walk up the widget hierarchy to find QgsAttributeForm.
+        # In form mode (Feature Attributes dialog), QgsAttributeForm exists as a parent.
+        # In attribute table mode, it does NOT — we must use layer.changeAttributeValue().
+        # IMPORTANT: Do NOT fallback to window() — findChild on the window would find
+        # widgets from OTHER rows in the attribute table, updating the wrong feature.
         form = self._widget
-        while form and not form.objectName().startswith("QgsAttributeForm"):
+        while form:
+            class_name = type(form).__name__
+            if class_name == "QgsAttributeForm" or form.objectName().startswith("QgsAttributeForm"):
+                break
             form = form.parentWidget()
-        if not form:
-            # Fallback: use top-level parent (form might not have expected objectName)
-            form = self._widget.window()
+
+        is_form_mode = form is not None
+        log(f"UmeMapCodeListSearch: Mode={'form' if is_form_mode else 'table'}, "
+            f"form_class={type(form).__name__ if form else 'None'}")
 
         for link in linked_fields:
             field_name = link.get("fieldName", "")
@@ -252,14 +309,18 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
             # Resolve the linked value: check alt values first, then primary title
             linked_value = linked_values.get(column_name) or linked_values.get("__primary__", "")
 
+            log(f"UmeMapCodeListSearch: Link '{column_name}' -> '{field_name}': "
+                f"value='{linked_value}' (tried key '{column_name}', fallback '__primary__')")
+
             # Skip if no linked value found
             if not linked_value:
+                log(f"UmeMapCodeListSearch: No linked value found for '{column_name}', skipping")
                 continue
 
             updated_via_widget = False
 
-            # Try form mode first: find sibling widget in the attribute form
-            if form:
+            # Form mode: find sibling widget in the QgsAttributeForm
+            if is_form_mode:
                 sibling = form.findChild(QLineEdit, field_name)
                 if sibling:
                     sibling.setText(linked_value)
@@ -269,19 +330,75 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
                         sibling_wrapper._valid_value = linked_value
                         sibling.setStyleSheet("")
                     updated_via_widget = True
+                    log(f"UmeMapCodeListSearch: Updated '{field_name}' via form widget")
+                else:
+                    log(f"UmeMapCodeListSearch: Sibling widget '{field_name}' not found in form")
 
             # Fallback for attribute table mode: update via layer editing buffer
             if not updated_via_widget:
                 try:
                     layer = self.layer()
-                    ctx = self.context()
-                    if layer and ctx:
-                        feature_id = ctx.formFeature().id()
+                    feature_id = self._resolve_feature_id(layer)
+
+                    log(f"UmeMapCodeListSearch: Fallback mode - feature_id={feature_id}, "
+                        f"layer={layer.name() if layer else None}, editable={layer.isEditable() if layer else False}")
+                    if layer and layer.isEditable() and feature_id is not None:
                         field_idx = layer.fields().indexOf(field_name)
-                        if field_idx >= 0 and layer.isEditable():
+                        if field_idx >= 0:
                             layer.changeAttributeValue(feature_id, field_idx, linked_value)
+                            log(f"UmeMapCodeListSearch: Updated '{field_name}' = '{linked_value}' via layer (fid={feature_id})")
+                        else:
+                            log(f"UmeMapCodeListSearch: Field '{field_name}' not found in layer fields")
+                    else:
+                        log(f"UmeMapCodeListSearch: Cannot update - layer={layer is not None}, "
+                            f"editable={layer.isEditable() if layer else 'N/A'}, feature_id={feature_id}")
                 except Exception as e:
-                    log(f"UmeMapCodeListSearch: Could not update linked field '{field_name}': {e}")
+                    log(f"UmeMapCodeListSearch: Fallback failed for '{field_name}': {e}")
+
+    def _resolve_feature_id(self, layer) -> Optional[int]:
+        """Try multiple strategies to get the current feature ID.
+
+        In form mode, setFeature() is called before editing starts.
+        In attribute table mode, setFeature() may be called AFTER the value is selected,
+        so we need alternative strategies.
+        """
+        # 1. From setFeature() - works in form mode, sometimes in table mode
+        if self._feature_id is not None:
+            log(f"UmeMapCodeListSearch: feature_id={self._feature_id} from setFeature()")
+            return self._feature_id
+
+        # 2. From context formFeature - works in form mode
+        try:
+            ctx = self.context()
+            if ctx:
+                feat = ctx.formFeature()
+                if feat and feat.isValid():
+                    fid = feat.id()
+                    log(f"UmeMapCodeListSearch: feature_id={fid} from context.formFeature()")
+                    return fid
+        except Exception:
+            pass
+
+        # 3. From edit buffer - the current field's value was just changed via emitValueChanged(),
+        #    so the feature should be in the buffer's changedAttributeValues
+        if layer and layer.isEditable():
+            buf = layer.editBuffer()
+            if buf:
+                changed = buf.changedAttributeValues()
+                if changed:
+                    # Our field index should be in the most recently changed feature
+                    my_field_idx = self.fieldIdx()
+                    for fid in reversed(list(changed.keys())):
+                        if my_field_idx in changed[fid]:
+                            log(f"UmeMapCodeListSearch: feature_id={fid} from edit buffer (matched field {my_field_idx})")
+                            return fid
+                    # Fallback: use the last changed feature
+                    fid = list(changed.keys())[-1]
+                    log(f"UmeMapCodeListSearch: feature_id={fid} from edit buffer (last changed)")
+                    return fid
+
+        log("UmeMapCodeListSearch: Could not resolve feature_id")
+        return None
 
     @staticmethod
     def _find_widget_wrapper(widget: QLineEdit) -> Optional["UmeMapCodeListWidgetWrapper"]:
