@@ -6,7 +6,7 @@
 name=UmeMap layer management
 qgisMinimumVersion=3.0
 description=UmeMap layer management is a plugin which helps with styles for vector layers that come from a UmeMap server and form management
-version=0.10+20260401.0934
+version=0.10+20260401.1526
 author=UmeMap
 email=marcus.lindh@umea.se
 
@@ -20,8 +20,8 @@ repository=https://github.com/UmeMap/UmeMap-Qgis-plugin
 
 hasProcessingProvider=no
 changelog=
-  0.10+20260401.0934
-  - Fix: Validation and field linking in attribute table (B2774)   - Fix: Add field linking between CodeList widgets (B2774)
+  0.10+20260401.1526
+  - Fix: Attribute table field linking and value persistence (B2774)   - Fix: Validation and field linking in attribute table (B2774)   - Fix: Add field linking between CodeList widgets (B2774)
 # Tags are comma separated with spaces allowed
 tags=vector,wfs,style,umemap
 

@@ -2,17 +2,18 @@
 """
 Field Linker - Layer-level handler for CodeList field linking in attribute table.
 
-In form mode, field linking is handled by the editforminit Python code (for ValueMap)
-and the widget wrapper (for UmeMapCodeListSearch). But in attribute table mode, neither
-mechanism fires. This module connects to the layer's attributeValueChanged signal to
-handle field linking regardless of editing mode.
+In form mode, field linking is handled by:
+- editforminit Python code (for ValueMap widgets like Datafångstmetod → kod)
+- widget wrapper (for UmeMapCodeListSearch widgets like Artnamn latin ↔ svenska)
 
-It reads linked_fields and value_links from widget configs (both ValueMap and
-UmeMapCodeListSearch) and updates linked fields via layer.changeAttributeValue().
+In attribute table mode, editforminit never fires. This module handles linking
+via the layer's attributeValueChanged signal for:
+- ValueMap owner fields → read-only linked text fields (e.g. Datafångstmetod → kod)
+- UmeMapCodeListSearch fields are handled by widget_wrapper directly
 """
 
 import json
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 from qgis.core import QgsVectorLayer, QgsEditorWidgetSetup
 
@@ -24,9 +25,7 @@ class FieldLinker:
 
     def __init__(self, layer: QgsVectorLayer):
         self._layer = layer
-        # Map from field index -> list of {fieldName, columnName, value_links}
-        self._field_links: Dict[int, List[Dict[str, Any]]] = {}
-        # Guard against recursive updates
+        self._field_links: Dict[int, Dict[str, Any]] = {}
         self._updating = False
 
     def setup(self) -> bool:
@@ -50,7 +49,7 @@ class FieldLinker:
             if not linked_fields:
                 continue
 
-            # Parse value_links if available (ValueMap widgets)
+            # Parse value_links if available (ValueMap owner fields)
             value_links: Optional[Dict[str, Dict[str, str]]] = None
             value_links_json = config.get("value_links", "")
             if value_links_json:
@@ -63,6 +62,9 @@ class FieldLinker:
                 "linked_fields": linked_fields,
                 "value_links": value_links,
             }
+            log(f"FieldLinker: Field '{field_name}' (idx={i}, type={widget_setup.type()}): "
+                f"linked_fields={linked_fields}, "
+                f"has_value_links={value_links is not None}")
 
         if not self._field_links:
             return False
@@ -91,12 +93,19 @@ class FieldLinker:
         value_links: Optional[Dict[str, Dict[str, str]]] = link_info["value_links"]
 
         if not value_links:
+            # UmeMapCodeListSearch fields don't have value_links —
+            # their linking is handled by the widget wrapper directly
             return
 
         str_value = str(value) if value is not None else ""
         linked_values = value_links.get(str_value)
         if not linked_values:
+            log(f"FieldLinker: No mapping for '{str_value}' "
+                f"(sample keys: {list(value_links.keys())[:3]})")
             return
+
+        log(f"FieldLinker: Field idx={idx} changed to '{str_value}', "
+            f"updating: {linked_values}")
 
         self._updating = True
         try:
@@ -114,6 +123,7 @@ class FieldLinker:
                 target_idx = fields.indexOf(field_name)
                 if target_idx >= 0:
                     self._layer.changeAttributeValue(fid, target_idx, linked_value)
+                    log(f"FieldLinker: Updated '{field_name}' = '{linked_value}' (fid={fid})")
         finally:
             self._updating = False
 
@@ -122,14 +132,13 @@ class FieldLinkerRegistry:
     """Manages FieldLinker instances across all layers."""
 
     def __init__(self):
-        self._linkers: Dict[str, FieldLinker] = {}  # layer id -> FieldLinker
+        self._linkers: Dict[str, FieldLinker] = {}
 
     def register_layer(self, layer: QgsVectorLayer) -> None:
         """Check layer for codelist field links and register if any found."""
         if not isinstance(layer, QgsVectorLayer):
             return
 
-        # Skip if already registered
         if layer.id() in self._linkers:
             return
 
@@ -138,7 +147,6 @@ class FieldLinkerRegistry:
             self._linkers[layer.id()] = linker
             log(f"FieldLinker: Registered field linking for layer '{layer.name()}'")
 
-            # Clean up when layer is removed
             layer.willBeDeleted.connect(lambda lid=layer.id(): self._unregister_layer(lid))
 
     def _unregister_layer(self, layer_id: str) -> None:
