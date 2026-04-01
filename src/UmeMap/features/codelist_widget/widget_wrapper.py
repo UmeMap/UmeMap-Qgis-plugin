@@ -46,6 +46,7 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         self._ignore_text_change = False  # Prevents re-search when completer sets text
         self._last_search_text = ""  # Track what we last searched for
         self._results_map: Dict[str, Dict[str, Any]] = {}  # title -> full result object
+        self._valid_value: Optional[str] = None  # Last value selected from list or loaded from DB
 
     def createWidget(self, parent):
         self._widget = QLineEdit(parent)
@@ -70,6 +71,7 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         self._timer.timeout.connect(self._do_search)
 
         self._widget.textChanged.connect(self._on_text_changed)
+        self._widget.editingFinished.connect(self._on_editing_finished)
 
         return self._widget
 
@@ -83,7 +85,13 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
     def value(self):
         if self._widget:
             text = self._widget.text()
-            return text if text and text != "(no selection)" else None
+            if not text or text == "(no selection)":
+                return None
+            # Only return the value if it was selected from the list or loaded from DB
+            if self._valid_value is not None and text == self._valid_value:
+                return text
+            # If text doesn't match a valid value, return the original DB value
+            return self._current_value
         return None
 
     def setEnabled(self, enabled):
@@ -92,16 +100,21 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
 
     def setValue(self, value):
         self._current_value = value
+        text = str(value) if value and str(value) != "NULL" else ""
+        self._valid_value = text if text else None
         if self._widget:
             self._ignore_text_change = True
-            self._widget.setText(str(value) if value and str(value) != "NULL" else "")
+            self._widget.setText(text)
+            self._widget.setStyleSheet("")
             self._ignore_text_change = False
 
     def _on_completer_activated(self, text: str) -> None:
         """Called when user selects an item from the completer popup (Enter or click)."""
         self._ignore_text_change = True
+        self._valid_value = text
         if self._widget:
             self._widget.setText(text)
+            self._widget.setStyleSheet("")
         self._ignore_text_change = False
         self._timer.stop()  # Cancel any pending search
         self.emitValueChanged()  # Notify QGIS that the value changed
@@ -124,6 +137,27 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         else:
             self._model.setStringList([])
             self._last_search_text = ""
+
+    def _on_editing_finished(self) -> None:
+        """Validate the entered text when the widget loses focus or Enter is pressed."""
+        if not self._widget or self._ignore_text_change:
+            return
+
+        text = self._widget.text()
+        if not text:
+            # Empty is fine - clear validation state
+            self._valid_value = None
+            self._widget.setStyleSheet("")
+            return
+
+        if self._valid_value is not None and text == self._valid_value:
+            # Text matches a valid value - all good
+            self._widget.setStyleSheet("")
+            return
+
+        # Text doesn't match a valid value - mark as invalid with red border
+        self._widget.setStyleSheet("QLineEdit { border: 2px solid red; }")
+        log(f"UmeMapCodeListSearch: '{text}' är inte ett giltigt värde. Välj ett värde från listan.")
 
     def _do_search(self) -> None:
         """Execute the CodeList search against the UmeMap server."""
@@ -176,7 +210,12 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
             log(f"UmeMapCodeListSearch: Search failed: {e}")
 
     def _update_linked_fields(self, selected_title: str) -> None:
-        """Update linked UmeMapCodeListSearch fields when a value is selected."""
+        """Update linked UmeMapCodeListSearch fields when a value is selected.
+
+        Works in two modes:
+        - Form mode (Feature Attributes dialog): finds sibling widgets and updates them directly
+        - Table mode (Attribute Table): uses layer.changeAttributeValue() to update linked fields
+        """
         config = self.config()
         linked_fields_json = config.get("linked_fields", "")
         if not linked_fields_json:
@@ -201,7 +240,7 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         while form and not form.objectName().startswith("QgsAttributeForm"):
             form = form.parentWidget()
         if not form:
-            # Fallback: use top-level parent
+            # Fallback: use top-level parent (form might not have expected objectName)
             form = self._widget.window()
 
         for link in linked_fields:
@@ -213,13 +252,44 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
             # Resolve the linked value: check alt values first, then primary title
             linked_value = linked_values.get(column_name) or linked_values.get("__primary__", "")
 
+            # Skip if no linked value found
             if not linked_value:
                 continue
 
-            # Find the sibling widget by its QGIS field name
-            sibling = form.findChild(QLineEdit, field_name)
-            if sibling:
-                sibling.setText(linked_value)
+            updated_via_widget = False
+
+            # Try form mode first: find sibling widget in the attribute form
+            if form:
+                sibling = form.findChild(QLineEdit, field_name)
+                if sibling:
+                    sibling.setText(linked_value)
+                    # Mark the linked widget's value as valid (it was set programmatically)
+                    sibling_wrapper = self._find_widget_wrapper(sibling)
+                    if sibling_wrapper and hasattr(sibling_wrapper, '_valid_value'):
+                        sibling_wrapper._valid_value = linked_value
+                        sibling.setStyleSheet("")
+                    updated_via_widget = True
+
+            # Fallback for attribute table mode: update via layer editing buffer
+            if not updated_via_widget:
+                try:
+                    layer = self.layer()
+                    ctx = self.context()
+                    if layer and ctx:
+                        feature_id = ctx.formFeature().id()
+                        field_idx = layer.fields().indexOf(field_name)
+                        if field_idx >= 0 and layer.isEditable():
+                            layer.changeAttributeValue(feature_id, field_idx, linked_value)
+                except Exception as e:
+                    log(f"UmeMapCodeListSearch: Could not update linked field '{field_name}': {e}")
+
+    @staticmethod
+    def _find_widget_wrapper(widget: QLineEdit) -> Optional["UmeMapCodeListWidgetWrapper"]:
+        """Find the UmeMapCodeListWidgetWrapper associated with a QLineEdit widget."""
+        wrapper = QgsEditorWidgetWrapper.fromWidget(widget)
+        if isinstance(wrapper, UmeMapCodeListWidgetWrapper):
+            return wrapper
+        return None
 
     def _get_auth_headers(self) -> Dict[str, str]:
         """Extract authentication headers from the layer's auth configuration."""
