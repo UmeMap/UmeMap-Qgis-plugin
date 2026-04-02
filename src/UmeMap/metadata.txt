@@ -21,7 +21,10 @@ repository=https://github.com/UmeMap/UmeMap-Qgis-plugin
 hasProcessingProvider=no
 changelog=
   0.10+20260401.1526
-  - Fix: Attribute table field linking and value persistence (B2774)   - Fix: Validation and field linking in attribute table (B2774)   - Fix: Add field linking between CodeList widgets (B2774)
+  - Fix: Attribute table field linking and value persistence (B2774)   
+  - Fix: Validation and field linking in attribute table (B2774)   
+  - Fix: Add field linking between CodeList widgets (B2774)
+
 # Tags are comma separated with spaces allowed
 tags=vector,wfs,style,umemap
 
