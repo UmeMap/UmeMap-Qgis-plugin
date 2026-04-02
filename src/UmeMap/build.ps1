@@ -29,6 +29,7 @@ if (-not $qgisPluginPath) {
 
 # Auto-versioning från git-taggar
 $today = Get-Date -Format "yyyyMMdd"
+$now = Get-Date -Format "HHmm"
 $latestTag = git describe --tags --abbrev=0 --match "v*" 2>$null
 
 if ($latestTag) {
@@ -41,9 +42,11 @@ if ($latestTag) {
     $tagCommit = git rev-list -n 1 $latestTag
     $headCommit = git rev-parse HEAD
     if ($tagCommit -eq $headCommit) {
+        # Produktions-build: exakt på tagg, bara datum
         $version = "$major.$minor+$today"
     } else {
-        $version = "$major.$($minor + 1)+$today"
+        # Dev-build: efter tagg, datum + tid för unika versioner
+        $version = "$major.$($minor + 1)+$today.$now"
     }
 } else {
     Write-Host "  Ingen v*-tagg hittad. Ange version manuellt i metadata.txt" -ForegroundColor Red

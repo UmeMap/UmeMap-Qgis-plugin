@@ -20,7 +20,7 @@ from .resources import *
 # Import modules
 from .features.style_manager import StyleService, StyleActions
 from .features.layer_browser import BrowserDock
-from .features.codelist_widget import UmeMapCodeListWidgetFactory
+from .features.codelist_widget import UmeMapCodeListWidgetFactory, FieldLinkerRegistry
 from .ui import UmeMapDialog
 
 
@@ -74,8 +74,12 @@ class UmeMap:
             "UmeMapCodeListSearch", self._codelist_widget_factory
         )
 
+        # Register field linker for attribute table CodeList linking
+        self._field_linker_registry = FieldLinkerRegistry()
+
         # Connect signals
         QgsProject.instance().layerWasAdded.connect(self.style_service.on_layer_added)
+        QgsProject.instance().layerWasAdded.connect(self._field_linker_registry.register_layer)
 
     def tr(self, message):
         """
@@ -221,9 +225,16 @@ class UmeMap:
             action.deleteLater()
         self.actions.clear()
 
+        # Clean up field linkers
+        self._field_linker_registry.unregister_all()
+
         # Disconnect signals
         try:
             QgsProject.instance().layerWasAdded.disconnect(self.style_service.on_layer_added)
+        except Exception:
+            pass
+        try:
+            QgsProject.instance().layerWasAdded.disconnect(self._field_linker_registry.register_layer)
         except Exception:
             pass
 
