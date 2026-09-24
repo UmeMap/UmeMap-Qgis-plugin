@@ -204,7 +204,7 @@ class UmeMap:
         self.browser_dock.hide()
 
         # Add toggle action for layer browser
-        icon_path = os.path.join(self.plugin_dir, 'icons', 'browser.svg')
+        icon_path = os.path.join(self.plugin_dir, 'icon.png')
         self.add_action(
             icon_path,
             text=self.tr('UmeMap Layer Browser'),
