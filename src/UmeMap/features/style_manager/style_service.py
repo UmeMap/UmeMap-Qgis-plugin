@@ -240,6 +240,31 @@ class StyleService:
         style_uri = layer.styleURI()
         return bool(style_uri and style_uri.startswith("project:"))
 
+    def umemap_layers(self) -> List[QgsVectorLayer]:
+        """
+        Get all UmeMap layers in the current project (CodeList lookup layers excluded).
+
+        :return: List of UmeMap vector layers
+        """
+        return [
+            layer for layer in QgsProject.instance().mapLayers().values()
+            if isinstance(layer, QgsVectorLayer) and self.is_umemap_layer(layer)
+        ]
+
+    def update_style(self, layer: QgsMapLayer) -> bool:
+        """
+        Replace the layer's complete style with the style from the UmeMap server,
+        then auto-load any CodeList lookup layers the new style needs.
+
+        :param layer: The layer to update
+        :return: True if the style was applied
+        """
+        if not self.load_from_server(layer):
+            return False
+
+        self._ensure_codelist_layers(layer)
+        return True
+
     def on_layer_added(self, layer: QgsMapLayer) -> None:
         """
         Event handler for when a layer is added to the project.

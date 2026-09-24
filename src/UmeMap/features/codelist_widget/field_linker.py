@@ -149,6 +149,14 @@ class FieldLinkerRegistry:
 
             layer.willBeDeleted.connect(lambda lid=layer.id(): self._unregister_layer(lid))
 
+    def refresh_layer(self, layer: QgsVectorLayer) -> None:
+        """Re-scan a layer's widget configs, e.g. after its style has been replaced."""
+        if not isinstance(layer, QgsVectorLayer):
+            return
+
+        self._unregister_layer(layer.id())
+        self.register_layer(layer)
+
     def _unregister_layer(self, layer_id: str) -> None:
         """Remove linker for a layer."""
         linker = self._linkers.pop(layer_id, None)
