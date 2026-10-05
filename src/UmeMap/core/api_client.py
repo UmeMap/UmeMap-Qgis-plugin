@@ -4,10 +4,47 @@ UmeMap API Client - HTTP communication with UmeMap server.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 import requests
 
 from qgis.PyQt.QtXml import QDomDocument
+
+
+def _describe_request_error(error: Exception) -> str:
+    """Short description of why a request failed, for the QGIS log."""
+    if isinstance(error, requests.exceptions.Timeout):
+        return "timeout"
+    if isinstance(error, requests.exceptions.ConnectionError):
+        return "connection error"
+    return str(error) or type(error).__name__
+
+
+def parse_style_document(content: bytes) -> Tuple[Optional[QDomDocument], str]:
+    """
+    Parse a QML style returned by GetVectorStyle.
+
+    A response that is not a QGIS style with field configuration (e.g. an error
+    page) is rejected, so it never replaces the layer's last known settings.
+
+    :param content: Raw response body
+    :return: (document, "") if valid, (None, reason) otherwise
+    """
+    style_doc = QDomDocument("qgis")
+    result = style_doc.setContent(content)
+    # setContent returns (success, errorMsg, errorLine, errorColumn)
+    if isinstance(result, tuple):
+        if not result[0]:
+            return None, f"invalid XML: {result[1]}"
+    elif not result:
+        return None, "invalid XML"
+
+    root = style_doc.documentElement()
+    if root.tagName() != "qgis":
+        return None, f"unexpected root element '{root.tagName()}'"
+    if root.firstChildElement("fieldConfiguration").isNull():
+        return None, "style has no field configuration"
+
+    return style_doc, ""
 
 
 @dataclass
@@ -40,13 +77,31 @@ class UmeMapApiClient:
         :param wfs_url: Base URL of the WFS server
         :return: True if server is UmeMap, False otherwise
         """
+        return UmeMapApiClient.check_umemap_server(wfs_url)[0] is True
+
+    @staticmethod
+    def check_umemap_server(wfs_url: str) -> Tuple[Optional[bool], str]:
+        """
+        Check if WFS server is a UmeMap server, telling a server that answered
+        apart from one that could not be reached.
+
+        :param wfs_url: Base URL of the WFS server
+        :return: (True/False, "") when the server answered, (None, reason) when it could not be reached
+        """
         try:
             url = wfs_url.rstrip('/') + "?request=ServerInfo"
             resp = requests.get(url, verify=False, timeout=10)
+        except Exception as e:
+            return None, _describe_request_error(e)
+
+        if resp.status_code >= 500:
+            return None, f"HTTP {resp.status_code}"
+
+        try:
             server_info = resp.json()
-            return server_info.get("softwareName") == "UmeMap"
+            return server_info.get("softwareName") == "UmeMap", ""
         except Exception:
-            return False
+            return False, ""
 
     def get_vector_style(self, layer_name: str) -> Optional[QDomDocument]:
         """
@@ -55,26 +110,29 @@ class UmeMapApiClient:
         :param layer_name: Name of the WFS layer
         :return: QDomDocument with style, or None if failed
         """
+        content, _ = self.fetch_vector_style(layer_name)
+        if content is None:
+            return None
+        return parse_style_document(content)[0]
+
+    def fetch_vector_style(self, layer_name: str) -> Tuple[Optional[bytes], str]:
+        """
+        Fetch the raw vector style (QML) from UmeMap server.
+        Does not touch any Qt objects, so it can run in a background task.
+
+        :param layer_name: Name of the WFS layer
+        :return: (content, "") on success, (None, reason) if failed
+        """
         try:
             url = f"{self.base_url}?REQUEST=GetVectorStyle&TYPENAME={layer_name}"
             response = requests.get(url, headers=self.headers, verify=False, timeout=30)
+        except Exception as e:
+            return None, _describe_request_error(e)
 
-            if response.status_code != 200:
-                return None
+        if response.status_code != 200:
+            return None, f"HTTP {response.status_code}"
 
-            style_doc = QDomDocument("qgis")
-            result = style_doc.setContent(response.content)
-            # setContent returns (success, errorMsg, errorLine, errorColumn)
-            if isinstance(result, tuple):
-                if not result[0]:
-                    return None
-            elif not result:
-                return None
-
-            return style_doc
-
-        except Exception:
-            return None
+        return response.content, ""
 
     def save_vector_style(self, layer_name: str, qml_data: bytes) -> ApiResponse:
         """

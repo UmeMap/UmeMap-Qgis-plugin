@@ -61,6 +61,8 @@
     <Content Include="build.ps1" />
     <Content Include="icon.png" />
     <Content Include="icons\add.svg" />
+    <Content Include="icons\attributes_update.svg" />
+    <Content Include="icons\attributes_update_all.svg" />
     <Content Include="icons\folder.svg" />
     <Content Include="icons\layer_vector.svg" />
     <Content Include="icons\refresh.svg" />
