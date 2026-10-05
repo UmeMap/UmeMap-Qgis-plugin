@@ -57,13 +57,20 @@ if ($latestTag) {
 $metaContent = Get-Content ".\metadata.txt" -Raw
 $metaContent = $metaContent -replace '(?m)^version=.*$', "version=$version"
 
-# Generera changelog från commits sedan senaste taggen
-if ($tagCommit -ne $headCommit) {
-    $commits = git log --no-merges "$latestTag..HEAD" --pretty=format:"  - %s" 2>$null
-    if ($commits) {
-        $newEntry = "  $version`n$commits"
-        $metaContent = $metaContent -replace '(?ms)^changelog=.*?(?=\r?\n[#a-z])', "changelog=`n$newEntry"
-    }
+# Generera changelog från commits sedan föregående tagg
+# (för en produktions-build på en tagg: commits sedan taggen innan)
+if ($tagCommit -eq $headCommit) {
+    $fromTag = git describe --tags --abbrev=0 --match "v*" "$latestTag^" 2>$null
+} else {
+    $fromTag = $latestTag
+}
+$range = if ($fromTag) { "$fromTag..HEAD" } else { "HEAD" }
+$commits = @(git log --no-merges $range --pretty=format:"  - %s" 2>$null)
+if ($commits.Count -gt 0) {
+    # -join behövs, annars slås commit-raderna ihop till en rad med mellanslag
+    $newEntry = "  $version`n" + ($commits -join "`n")
+    # $ i commit-meddelanden får inte tolkas som regex-grupper i ersättningen
+    $metaContent = $metaContent -replace '(?ms)^changelog=.*?(?=\r?\n[#a-z])', ("changelog=`n" + $newEntry.Replace('$', '$$'))
 }
 
 Set-Content ".\metadata.txt" -Value $metaContent -NoNewline

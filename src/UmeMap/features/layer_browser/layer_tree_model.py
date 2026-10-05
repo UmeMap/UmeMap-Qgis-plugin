@@ -7,10 +7,9 @@ from typing import Dict, List, Optional
 
 from qgis.PyQt.QtCore import Qt, QSortFilterProxyModel
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem, QIcon
-from qgis.core import QgsApplication
 
 from .wfs_source import WfsSource
-from .wfs_parser import WfsLayerInfo, WfsDescribeFeatureTypeParser
+from .wfs_parser import WfsLayerInfo
 
 
 class ItemRole(IntEnum):
@@ -176,12 +175,12 @@ class LayerTreeModel(QStandardItemModel):
 
             # Add layers to folder
             parent_item = folder_items[folder_path]
-            for layer in sorted(folder_layers[folder_path], key=lambda l: l.title):
+            for layer in sorted(folder_layers[folder_path], key=lambda info: info.title):
                 layer_item = self._create_layer_item(layer, source)
                 parent_item.appendRow(layer_item)
 
         # 2. Add layers without keywords last (sorted alphabetically)
-        for layer in sorted(root_layers, key=lambda l: l.title):
+        for layer in sorted(root_layers, key=lambda info: info.title):
             layer_item = self._create_layer_item(layer, source)
             source_item.appendRow(layer_item)
 

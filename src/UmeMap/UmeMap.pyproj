@@ -27,8 +27,10 @@
     <Compile Include="core\__init__.py" />
     <Compile Include="core\api_client.py" />
     <Compile Include="core\auth_manager.py" />
+    <Compile Include="core\http_client.py" />
     <Compile Include="core\translations.py" />
     <Compile Include="core\wfs_utils.py" />
+    <Compile Include="core\xml_utils.py" />
     <Compile Include="features\__init__.py" />
     <Compile Include="features\layer_browser\__init__.py" />
     <Compile Include="features\layer_browser\browser_dock.py" />

@@ -481,7 +481,7 @@ class StyleService:
 
         # Check which CodeList layers are already loaded
         project = QgsProject.instance()
-        loaded_names = {l.name() for l in project.mapLayers().values()}
+        loaded_names = {loaded.name() for loaded in project.mapLayers().values()}
 
         wfs_url, _ = parse_wfs_data_source(layer)
         if not wfs_url:

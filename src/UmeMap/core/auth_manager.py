@@ -41,7 +41,7 @@ class AuthManager:
             for key, value in config_map.items():
                 headers[key] = value
 
-        except Exception:
+        except Exception:  # nosec B110
             # Silently fail - caller should handle missing headers
             pass
 

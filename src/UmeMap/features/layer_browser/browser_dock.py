@@ -8,8 +8,7 @@ the QGIS UI during WFS GetCapabilities and DescribeFeatureType fetching.
 import os
 import re
 import sip
-import xml.etree.ElementTree as ET
-from typing import Dict, Optional
+from typing import Dict
 
 from qgis.PyQt.QtCore import Qt, QRegularExpression, pyqtSignal, QTimer
 from qgis.PyQt.QtWidgets import (
@@ -21,16 +20,17 @@ from qgis.PyQt.QtGui import QIcon, QDrag
 from qgis.gui import QgsDockWidget
 from qgis.core import (
     QgsProject, QgsVectorLayer, QgsApplication,
-    QgsNetworkAccessManager, QgsAuthMethodConfig,
+    QgsNetworkAccessManager,
     QgsMimeDataUtils
 )
 from qgis.PyQt.QtNetwork import QNetworkRequest
 from qgis.PyQt.QtCore import QUrl
 
 from ...core.wfs_utils import build_wfs_layer_uri
+from ...core.xml_utils import ET, parse_xml
 from ...ui.utils import log
 from .wfs_source import WfsSource
-from .wfs_parser import WfsCapabilitiesParser, WfsLayerInfo, WfsDescribeFeatureTypeParser
+from .wfs_parser import WfsCapabilitiesParser
 from .layer_tree_model import LayerTreeModel, LayerFilterProxyModel, ItemRole
 from .settings_manager import SettingsManager
 
@@ -428,7 +428,7 @@ class BrowserDock(QgsDockWidget):
     def _parse_and_update_geometry_types(self, xml_data: bytes, source: WfsSource, layer_names: list) -> None:
         """Parse geometry types from DescribeFeatureType and update the model."""
         try:
-            root = ET.fromstring(xml_data)
+            root = parse_xml(xml_data)
         except ET.ParseError:
             return
 
