@@ -15,5 +15,7 @@ import os
 
 from .browser_dock import BrowserDock
 
+__all__ = ['BrowserDock']
+
 # Icon directory for layer browser resources
 ICON_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'icons')

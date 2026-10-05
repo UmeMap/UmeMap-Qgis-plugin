@@ -5,11 +5,11 @@ Parses ows:Keywords from WFS GetCapabilities to extract
 folder hierarchy information for layer organization.
 """
 
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 import re
 
+from ...core.xml_utils import ET, parse_xml
 from ...ui.utils import log
 
 
@@ -70,7 +70,7 @@ class WfsCapabilitiesParser:
             Dictionary mapping layer names to WfsLayerInfo
         """
         try:
-            root = ET.fromstring(xml_data)
+            root = parse_xml(xml_data)
             return self._parse_feature_types(root)
         except ET.ParseError as e:
             log(f"[Layer Browser] Error parsing XML: {e}")
@@ -404,7 +404,7 @@ class WfsDescribeFeatureTypeParser:
             Geometry type string: Point, LineString, Polygon, etc.
         """
         try:
-            root = ET.fromstring(xml_data)
+            root = parse_xml(xml_data)
             return cls._find_geometry_type(root)
         except ET.ParseError as e:
             log(f"[Layer Browser] Error parsing DescribeFeatureType: {e}")

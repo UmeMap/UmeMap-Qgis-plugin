@@ -76,7 +76,7 @@ class FieldLinker:
         """Disconnect signal."""
         try:
             self._layer.attributeValueChanged.disconnect(self._on_attribute_value_changed)
-        except Exception:
+        except Exception:  # nosec B110
             pass
         self._field_links.clear()
 

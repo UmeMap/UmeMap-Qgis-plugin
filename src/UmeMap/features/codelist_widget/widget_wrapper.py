@@ -14,13 +14,12 @@ automatically updates the linked widget.
 import json
 from typing import Any, Dict, List, Optional
 
-import requests
-
 from qgis.gui import QgsEditorWidgetWrapper
 from qgis.PyQt.QtCore import Qt, QStringListModel, QTimer
 from qgis.PyQt.QtWidgets import QCompleter, QLineEdit
 
 from ...core.auth_manager import AuthManager
+from ...core.http_client import http_get
 from ...ui.utils import log
 
 
@@ -233,13 +232,10 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
             if column_name:
                 url += f"&columnName={column_name}"
 
-            response = requests.get(
-                url,
-                headers=auth_headers,
-                verify=False,
-                timeout=5
-            )
-            if response.status_code == 200:
+            response = http_get(url, headers=auth_headers, timeout=5)
+            if response.status_code != 200:
+                log(f"UmeMapCodeListSearch: Search failed: {response.describe_error()}")
+            else:
                 results = response.json()
                 titles = [item["title"] for item in results]
 
@@ -262,7 +258,7 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         config = self.config()
         linked_fields_json = config.get("linked_fields", "")
         if not linked_fields_json:
-            log(f"UmeMapCodeListSearch: No linked_fields config, skipping")
+            log("UmeMapCodeListSearch: No linked_fields config, skipping")
             return
 
         result = self._results_map.get(selected_title)
@@ -376,7 +372,7 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
                     fid = feat.id()
                     log(f"UmeMapCodeListSearch: feature_id={fid} from context.formFeature()")
                     return fid
-        except Exception:
+        except Exception:  # nosec B110
             pass
 
         # 3. From edit buffer - the current field's value was just changed via emitValueChanged(),

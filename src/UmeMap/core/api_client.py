@@ -5,22 +5,10 @@ UmeMap API Client - HTTP communication with UmeMap server.
 
 from dataclasses import dataclass
 from typing import Optional, Dict, Tuple
-import requests
 
 from qgis.PyQt.QtXml import QDomDocument
 
-
-# HTTP status codes meaning the server (or the proxy in front of it) is down
-UNREACHABLE_STATUS_CODES = (502, 503, 504)
-
-
-def _describe_request_error(error: Exception) -> str:
-    """Short description of why a request failed, for the QGIS log."""
-    if isinstance(error, requests.exceptions.Timeout):
-        return "timeout"
-    if isinstance(error, requests.exceptions.ConnectionError):
-        return "connection error"
-    return str(error) or type(error).__name__
+from .http_client import http_get, http_post
 
 
 def parse_style_document(content: bytes) -> Tuple[Optional[QDomDocument], str]:
@@ -92,17 +80,13 @@ class UmeMapApiClient:
         :param wfs_url: Base URL of the WFS server
         :return: (True/False, "") when the server answered, (None, reason) when it could not be reached
         """
-        try:
-            url = wfs_url.rstrip('/') + "?request=ServerInfo"
-            resp = requests.get(url, verify=False, timeout=10)
-        except Exception as e:
-            return None, _describe_request_error(e)
+        response = http_get(wfs_url.rstrip('/') + "?request=ServerInfo", timeout=10)
 
-        if resp.status_code >= 500:
-            return None, f"HTTP {resp.status_code}"
+        if response.status_code == 0 or response.status_code >= 500:
+            return None, response.describe_error()
 
         try:
-            server_info = resp.json()
+            server_info = response.json()
             return server_info.get("softwareName") == "UmeMap", ""
         except Exception:
             return False, ""
@@ -128,16 +112,11 @@ class UmeMapApiClient:
             unreachable is True when the server itself can't be reached (timeout, connection
             error, bad gateway/unavailable) rather than failing for this layer only
         """
-        try:
-            url = f"{self.base_url}?REQUEST=GetVectorStyle&TYPENAME={layer_name}"
-            response = requests.get(url, headers=self.headers, verify=False, timeout=30)
-        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-            return None, _describe_request_error(e), True
-        except Exception as e:
-            return None, _describe_request_error(e), False
+        url = f"{self.base_url}?REQUEST=GetVectorStyle&TYPENAME={layer_name}"
+        response = http_get(url, headers=self.headers, timeout=30)
 
         if response.status_code != 200:
-            return None, f"HTTP {response.status_code}", response.status_code in UNREACHABLE_STATUS_CODES
+            return None, response.describe_error(), response.unreachable
 
         return response.content, "", False
 
@@ -151,74 +130,55 @@ class UmeMapApiClient:
         """
         url = f"{self.base_url}?request=SaveVectorStyle&typename={layer_name}"
 
-        try:
-            response = requests.post(
-                url,
-                data=qml_data,
-                headers=self.headers,
-                verify=False,
-                allow_redirects=False,
-                timeout=30
-            )
+        # Redirects are followed by the QGIS network stack with the same method and body
+        response = http_post(url, qml_data, headers=self.headers, timeout=30)
 
-            # Handle redirect
-            if response.status_code == 302:
-                new_url = response.headers.get('Location')
-                if new_url:
-                    response = requests.post(
-                        new_url,
-                        data=qml_data,
-                        headers=self.headers,
-                        verify=False,
-                        allow_redirects=False,
-                        timeout=30
-                    )
-
-            # Handle authentication error
-            if response.status_code == 401:
-                return ApiResponse(
-                    status="error",
-                    data=None,
-                    message="The API key is invalid or missing. Please check your authentication configuration.",
-                    code="AUTH_ERROR"
-                )
-
-            # Handle success
-            if response.status_code == 200:
-                try:
-                    response_data = response.json()
-                    return ApiResponse(**response_data)
-                except Exception as e:
-                    return ApiResponse(
-                        status="error",
-                        data=None,
-                        message=f"Error interpreting response: {str(e)}",
-                        code="PARSE_ERROR"
-                    )
-
-            # Handle other errors
-            try:
-                response_data = response.json()
-                return ApiResponse(**response_data)
-            except Exception:
-                return ApiResponse(
-                    status="error",
-                    data=None,
-                    message=f"An error occurred. HTTP status code: {response.status_code}",
-                    code="HTTP_ERROR"
-                )
-
-        except requests.exceptions.Timeout:
+        if response.timed_out:
             return ApiResponse(
                 status="error",
                 data=None,
                 message="Request timed out",
                 code="TIMEOUT"
             )
-        except Exception as e:
+
+        if response.status_code == 0:
             return ApiResponse(
                 status="error",
                 data=None,
-                message=str(e),
+                message=response.describe_error(),
                 code="UNKNOWN_ERROR"
+            )
+
+        # Handle authentication error
+        if response.status_code == 401:
+            return ApiResponse(
+                status="error",
+                data=None,
+                message="The API key is invalid or missing. Please check your authentication configuration.",
+                code="AUTH_ERROR"
+            )
+
+        # Handle success
+        if response.status_code == 200:
+            try:
+                response_data = response.json()
+                return ApiResponse(**response_data)
+            except Exception as e:
+                return ApiResponse(
+                    status="error",
+                    data=None,
+                    message=f"Error interpreting response: {str(e)}",
+                    code="PARSE_ERROR"
+                )
+
+        # Handle other errors
+        try:
+            response_data = response.json()
+            return ApiResponse(**response_data)
+        except Exception:
+            return ApiResponse(
+                status="error",
+                data=None,
+                message=f"An error occurred. HTTP status code: {response.status_code}",
+                code="HTTP_ERROR"
             )

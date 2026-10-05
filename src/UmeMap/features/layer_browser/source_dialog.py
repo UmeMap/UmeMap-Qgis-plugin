@@ -4,7 +4,6 @@ Dialog for adding/editing WFS sources.
 
 from typing import Optional
 
-from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLineEdit, QComboBox, QPushButton, QLabel,

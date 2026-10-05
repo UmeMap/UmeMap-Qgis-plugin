@@ -15,7 +15,7 @@ from qgis.core import QgsApplication, QgsProject
 from qgis.gui import QgsDockWidget, QgsGui
 
 # Initialize Qt resources from file resources.py
-from .resources import *
+from .resources import *  # noqa: F401,F403 - registers the Qt resources
 
 # Import modules
 from .core.translations import create_translator
@@ -112,7 +112,8 @@ class UmeMap:
         add_to_toolbar=True,
         status_tip=None,
         whats_this=None,
-        parent=None):
+        parent=None,
+    ):
         """
         Add a toolbar icon to the toolbar.
 
@@ -270,11 +271,11 @@ class UmeMap:
         # Disconnect signals
         try:
             QgsProject.instance().layerWasAdded.disconnect(self.style_service.on_layer_added)
-        except Exception:
+        except Exception:  # nosec B110
             pass
         try:
             QgsProject.instance().layerWasAdded.disconnect(self._field_linker_registry.register_layer)
-        except Exception:
+        except Exception:  # nosec B110
             pass
 
     def run(self):
