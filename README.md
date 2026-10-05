@@ -14,7 +14,7 @@ Dockable panel for browsing WFS layers organized by keyword hierarchy, with sear
 
 ### Style Management
 
-Automatically load and save QML styles from/to UmeMap servers. Layers from a project file keep their own symbology, but their attribute settings (value maps, aliases, constraints, forms and attribute table) are refreshed from the server when the project is opened.
+Automatically load and save QML styles from/to UmeMap servers. Layers from a project file keep their own symbology, but their attribute settings (value maps, aliases, constraints, forms and attribute table) are refreshed from the server when the project is opened. They can also be updated from the server at any time without reloading the layer.
 
 ![Save style context menu](docs/images/style-context-menu.png)
 ![Style save confirmation](docs/images/style-save-confirm.png)
@@ -126,9 +126,12 @@ pip install pb_tool pyqt5 setuptools
 
 - When a WFS layer from a UmeMap server is added, styles are automatically loaded
 - When a project is opened, attribute settings (value maps, aliases, constraints, forms, attribute table) on UmeMap layers are refreshed from the server while the layer's symbology is kept
+- Right-click any UmeMap WFS layer → **Update Attribute Settings From UmeMap** to update value maps, aliases, constraints, form and attribute table from the server while keeping the layer's symbology. Fields added in WebAdmin are loaded as well, provided the layer has no unsaved edits
+- If the server can't be reached, layers keep their last known attribute settings from the project file and the reason is written to the UmeMap tab of the QGIS log panel
 - Right-click any UmeMap WFS layer → **Update Style From UmeMap** to replace the layer's style with the style from the server
 - Right-click any UmeMap WFS layer → **Save Style To UmeMap** to save the current style back to the server
 - **UmeMap** toolbar → **Update Styles On All UmeMap Layers** to replace the style on every UmeMap layer in the project (asks for confirmation)
+- **UmeMap** toolbar → **Update Attribute Settings On All UmeMap Layers** to update the attribute settings on every UmeMap layer in the project
 
 ### Toolbar
 
@@ -136,6 +139,7 @@ The **UmeMap** toolbar contains:
 
 - **UmeMap Layer Browser** – show/hide the Layer Browser panel
 - **Update Styles On All UmeMap Layers** – reload the style from the server for all UmeMap layers
+- **Update Attribute Settings On All UmeMap Layers** – reload value maps, aliases, constraints, forms and attribute table from the server for all UmeMap layers, keeping their symbology
 
 ### Translations
 
@@ -197,8 +201,8 @@ Install **Plugin Reloader** in QGIS (Plugins > Manage and Install Plugins > All 
 After installation, you should see:
 
 - A new menu item under **Plugins** → **UmeMap layer management**
-- A **UmeMap** toolbar with **Layer Browser** and **Update Styles On All UmeMap Layers**
-- Right-click on any WFS vector layer → **Update Style From UmeMap** and **Save Style To UmeMap** options
+- A **UmeMap** toolbar with **Layer Browser**, **Update Styles On All UmeMap Layers** and **Update Attribute Settings On All UmeMap Layers**
+- Right-click on any WFS vector layer → **Update Style From UmeMap**, **Update Attribute Settings From UmeMap** and **Save Style To UmeMap** options
 
 ---
 
