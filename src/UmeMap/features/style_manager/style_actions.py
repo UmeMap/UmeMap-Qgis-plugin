@@ -24,6 +24,7 @@ class StyleActions:
     # Object names used to find orphaned actions from a previous plugin instance
     SAVE_ACTION_NAME = "UmeMapSaveStyleAction"
     UPDATE_ACTION_NAME = "UmeMapUpdateStyleAction"
+    UPDATE_ATTRIBUTES_ACTION_NAME = "UmeMapUpdateAttributesAction"
 
     def __init__(
         self,
@@ -38,7 +39,7 @@ class StyleActions:
         :param qgis_iface: QGIS interface instance
         :param style_service: Shared StyleService instance
         :param tr_func: Translation function for i18n support
-        :param on_style_updated: Called with the layer after its style has been replaced
+        :param on_style_updated: Called with the layer after its style or attribute settings have been updated
         """
         self.iface = qgis_iface
         self._tr = tr_func or (lambda x: x)
@@ -46,12 +47,15 @@ class StyleActions:
         self._on_style_updated = on_style_updated
         self._layer_actions: List[QAction] = []
         self.update_all_action: Optional[QAction] = None
+        self.update_all_attributes_action: Optional[QAction] = None
 
     def register(self) -> None:
         """
-        Register the layer context menu actions ("Save Style To UmeMap" and
-        "Update Style From UmeMap") and create the "Update Styles On All UmeMap
-        Layers" action, which the plugin adds to its toolbar and menu.
+        Register the layer context menu actions ("Update Style From UmeMap",
+        "Update Attribute Settings From UmeMap" and "Save Style To UmeMap") and
+        create the "Update Styles On All UmeMap Layers" and "Update Attribute
+        Settings On All UmeMap Layers" actions, which the plugin adds to its
+        toolbar and menu.
 
         Removes any stale actions from a previous plugin instance first
         to prevent duplicates after reinstalling without restarting QGIS.
@@ -61,17 +65,23 @@ class StyleActions:
         update_action = self._create_action(
             "style_update.svg", self._tr("Update Style From UmeMap"),
             self.UPDATE_ACTION_NAME, self._on_update_style)
+        update_attributes_action = self._create_action(
+            "attributes_update.svg", self._tr("Update Attribute Settings From UmeMap"),
+            self.UPDATE_ATTRIBUTES_ACTION_NAME, self._on_update_attributes)
         save_action = self._create_action(
             "style_save.svg", self._tr("Save Style To UmeMap"),
             self.SAVE_ACTION_NAME, self._on_save_style)
 
-        for action in (update_action, save_action):
+        for action in (update_action, update_attributes_action, save_action):
             self.iface.addCustomActionForLayerType(action, "", QgsMapLayerType.VectorLayer, True)
             self._layer_actions.append(action)
 
         self.update_all_action = self._create_action(
             "style_update_all.svg", self._tr("Update Styles On All UmeMap Layers"),
             "", self._on_update_all_styles)
+        self.update_all_attributes_action = self._create_action(
+            "attributes_update_all.svg", self._tr("Update Attribute Settings On All UmeMap Layers"),
+            "", self._on_update_all_attributes)
 
     def _create_action(self, icon_name: str, text: str, object_name: str, callback) -> QAction:
         """Create a QAction with an icon from the plugin's icons folder."""
@@ -88,7 +98,7 @@ class StyleActions:
 
         # Find and remove orphaned actions by objectName from previous instances
         main_window = self.iface.mainWindow()
-        for name in (self.SAVE_ACTION_NAME, self.UPDATE_ACTION_NAME):
+        for name in (self.SAVE_ACTION_NAME, self.UPDATE_ACTION_NAME, self.UPDATE_ATTRIBUTES_ACTION_NAME):
             for action in main_window.findChildren(QAction, name):
                 self.iface.removeCustomActionForLayerType(action)
                 action.deleteLater()
@@ -103,6 +113,10 @@ class StyleActions:
         if self.update_all_action:
             self.update_all_action.deleteLater()
             self.update_all_action = None
+
+        if self.update_all_attributes_action:
+            self.update_all_attributes_action.deleteLater()
+            self.update_all_attributes_action = None
 
     def _on_save_style(self) -> None:
         """Handler for Save Style To UmeMap action."""
@@ -216,9 +230,89 @@ class StyleActions:
             duration=5
         )
 
+    def _on_update_attributes(self) -> None:
+        """Handler for Update Attribute Settings From UmeMap action (layer context menu)."""
+        layer = self.iface.activeLayer()
+
+        if not layer:
+            show_error_popup(
+                self._tr("Update attribute settings - Error"),
+                self._tr("No active layer selected.")
+            )
+            return
+
+        if not self.style_service.is_umemap_layer(layer):
+            show_error_popup(
+                self._tr("Update attribute settings - Error"),
+                self._tr("The layer is not a UmeMap layer.")
+            )
+            return
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            success = self._update_layer_attributes(layer)
+        finally:
+            QApplication.restoreOverrideCursor()
+
+        if success:
+            self.iface.messageBar().pushMessage(
+                self._tr("Update attribute settings"),
+                self._tr("Attribute settings updated on '{0}'.").format(layer.name()),
+                level=Qgis.Success,
+                duration=5
+            )
+        else:
+            self.iface.messageBar().pushMessage(
+                self._tr("Update attribute settings"),
+                self._tr("Could not update attribute settings on '{0}'. "
+                         "The layer keeps its current settings, see the UmeMap log for details.").format(layer.name()),
+                level=Qgis.Warning,
+                duration=10
+            )
+
+    def _on_update_all_attributes(self) -> None:
+        """Handler for Update Attribute Settings On All UmeMap Layers action (toolbar/menu)."""
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            layers = self.style_service.umemap_layers()
+            updated = sum(1 for layer in layers if self._update_layer_attributes(layer))
+        finally:
+            QApplication.restoreOverrideCursor()
+
+        if not layers:
+            self.iface.messageBar().pushMessage(
+                self._tr("Update attribute settings"),
+                self._tr("No UmeMap layers in the project."),
+                level=Qgis.Info,
+                duration=5
+            )
+            return
+
+        if updated == len(layers):
+            message = self._tr("Attribute settings updated on {0} of {1} UmeMap layers.").format(updated, len(layers))
+        else:
+            message = self._tr("Attribute settings updated on {0} of {1} UmeMap layers. "
+                               "See the UmeMap log for details.").format(updated, len(layers))
+
+        self.iface.messageBar().pushMessage(
+            self._tr("Update attribute settings"),
+            message,
+            level=Qgis.Success if updated == len(layers) else Qgis.Warning,
+            duration=5 if updated == len(layers) else 10
+        )
+
     def _update_layer_style(self, layer: QgsMapLayer) -> bool:
         """Replace a layer's style from the server and notify listeners."""
         if not self.style_service.update_style(layer):
+            return False
+
+        if self._on_style_updated:
+            self._on_style_updated(layer)
+        return True
+
+    def _update_layer_attributes(self, layer: QgsMapLayer) -> bool:
+        """Update a layer's attribute settings from the server and notify listeners."""
+        if not self.style_service.update_attribute_settings(layer):
             return False
 
         if self._on_style_updated:

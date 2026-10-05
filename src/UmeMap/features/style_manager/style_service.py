@@ -5,12 +5,13 @@ Style Service - Handles saving and loading styles from UmeMap server.
 
 import os
 import tempfile
-from typing import Callable, Dict, List, Optional, Set
+import time
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
-from qgis.core import Qgis, QgsApplication, QgsDataSourceUri, QgsMapLayer, QgsProject, QgsTask, QgsVectorLayer
+from qgis.core import Qgis, QgsApplication, QgsDataProvider, QgsDataSourceUri, QgsMapLayer, QgsProject, QgsTask, QgsVectorLayer
 from qgis.PyQt.QtXml import QDomDocument
 
-from ...core.api_client import UmeMapApiClient, ApiResponse
+from ...core.api_client import UmeMapApiClient, ApiResponse, parse_style_document
 from ...core.auth_manager import AuthManager
 from ...core.wfs_utils import parse_wfs_data_source
 from ...ui.utils import log
@@ -34,6 +35,32 @@ ATTRIBUTE_STYLE_CATEGORIES = (
     | _style_category("AttributeTable")
 )
 
+# Custom property set on layers confirmed to come from a UmeMap server. It is saved
+# in the project file, so the layer is still recognised when the server can't be reached.
+UMEMAP_LAYER_PROPERTY = "umemap_layer"
+
+# How long an unreachable server is remembered before it is asked again
+UNREACHABLE_RETRY_SECONDS = 30
+
+
+def log_kept_settings(layer: QgsMapLayer, reason: str) -> None:
+    """Log that a layer keeps its last known settings because the server style could not be used."""
+    log(f"Could not fetch style for '{layer.name()}' ({reason}). "
+        f"Keeping the last known settings from the project.", Qgis.Warning)
+
+
+def server_field_names(style_doc) -> Set[str]:
+    """Names of the fields configured in a style's fieldConfiguration."""
+    names: Set[str] = set()
+    config = style_doc.documentElement().firstChildElement("fieldConfiguration")
+    field = config.firstChildElement("field")
+    while not field.isNull():
+        name = field.attribute("name")
+        if name:
+            names.add(name)
+        field = field.nextSiblingElement("field")
+    return names
+
 
 class StyleService:
     """Service for managing layer styles with UmeMap server."""
@@ -47,6 +74,8 @@ class StyleService:
         self._tr = tr_func or (lambda x: x)
         # Cache of ServerInfo lookups per WFS url, avoids one request per layer on project load
         self._umemap_server_cache: Dict[str, bool] = {}
+        # Servers that could not be reached: url -> (retry after timestamp, reason)
+        self._unreachable_servers: Dict[str, Tuple[float, str]] = {}
 
     def save_to_server(self, layer: QgsMapLayer) -> ApiResponse:
         """
@@ -102,34 +131,66 @@ class StyleService:
         """
         Load and apply style from UmeMap server to layer.
 
+        If the style can't be fetched the layer keeps its current settings
+        (e.g. the value maps saved in the project file) and the reason is logged.
+
         :param layer: QGIS layer to apply style to
         :param categories: Style categories to import, None for the complete style
         :return: True if style was applied, False otherwise
         """
-        wfs_url, layer_name = parse_wfs_data_source(layer)
-
-        if not wfs_url or not layer_name:
-            log(f"Could not parse WFS data source for '{layer.name()}' (url={wfs_url}, typename={layer_name}).", Qgis.Warning)
-            return False
-
-        # Check if server is UmeMap
-        if not self._is_umemap_server(wfs_url):
-            log(f"Server '{wfs_url}' is not a UmeMap server.", Qgis.Warning)
-            return False
-
-        # Get auth headers and fetch style
-        headers = AuthManager.get_headers_from_layer(layer)
-        client = UmeMapApiClient(wfs_url, headers)
-
-        style_doc = client.get_vector_style(layer_name)
+        style_doc = self._fetch_style(layer)
         if not style_doc:
-            log(f"Could not fetch style for '{layer_name}' from '{wfs_url}'.", Qgis.Warning)
             return False
 
         if categories is None:
             return self.apply_style_to_layer(layer, style_doc)
 
         return self.apply_attribute_config_to_layer(layer, style_doc, categories)
+
+    def _fetch_style(self, layer: QgsMapLayer) -> Optional[QDomDocument]:
+        """
+        Fetch the layer's style from the UmeMap server, logging why if it fails.
+
+        :param layer: UmeMap layer
+        :return: The style document, or None if it could not be fetched
+        """
+        wfs_url, layer_name = parse_wfs_data_source(layer)
+
+        if not wfs_url or not layer_name:
+            log(f"Could not parse WFS data source for '{layer.name()}' (url={wfs_url}, typename={layer_name}).", Qgis.Warning)
+            return None
+
+        # Check if server is UmeMap
+        if not self.is_umemap_layer(layer):
+            log(f"Server '{wfs_url}' is not a UmeMap server.", Qgis.Warning)
+            return None
+
+        unreachable_reason = self.unreachable_reason(wfs_url)
+        if unreachable_reason:
+            log_kept_settings(layer, f"server unreachable: {unreachable_reason}")
+            return None
+
+        # Get auth headers and fetch style
+        headers = AuthManager.get_headers_from_layer(layer)
+        client = UmeMapApiClient(wfs_url, headers)
+
+        content, error, unreachable = client.fetch_vector_style(layer_name)
+        if content is None:
+            if unreachable:
+                # Short-circuits the remaining layers on this server (e.g. when updating
+                # all layers) instead of waiting for a timeout on each one
+                self.record_server_status(wfs_url, None, error)
+            log_kept_settings(layer, f"GetVectorStyle failed: {error}")
+            return None
+
+        style_doc, error = parse_style_document(content)
+        if not style_doc:
+            log_kept_settings(layer, f"invalid style from GetVectorStyle: {error}")
+            return None
+
+        # The server answered with a style, so it is a reachable UmeMap server
+        self.record_server_status(wfs_url, True)
+        return style_doc
 
     def apply_style_to_layer(self, layer: QgsMapLayer, style_doc) -> bool:
         """
@@ -201,10 +262,59 @@ class StyleService:
         :param wfs_url: Base URL of the WFS server
         :return: True if server is UmeMap
         """
+        return self.server_status(wfs_url) is True
+
+    def server_status(self, wfs_url: str) -> Optional[bool]:
+        """
+        Check (with cache) if a WFS url belongs to a UmeMap server.
+
+        Definite answers are cached for the session. A server that can't be
+        reached is only remembered for a short while, so it is asked again
+        once it is back.
+
+        :param wfs_url: Base URL of the WFS server
+        :return: True/False if known, None if the server can't be reached
+        """
         key = wfs_url.rstrip('/').lower()
-        if key not in self._umemap_server_cache:
-            self._umemap_server_cache[key] = UmeMapApiClient.is_umemap_server(wfs_url)
-        return self._umemap_server_cache[key]
+        if key in self._umemap_server_cache:
+            return self._umemap_server_cache[key]
+
+        if self.unreachable_reason(wfs_url):
+            return None
+
+        status, reason = UmeMapApiClient.check_umemap_server(wfs_url)
+        self.record_server_status(wfs_url, status, reason)
+        return status
+
+    def cached_server_status(self, wfs_url: str) -> Optional[bool]:
+        """Cached answer for a WFS url without asking the server, None if not known."""
+        return self._umemap_server_cache.get(wfs_url.rstrip('/').lower())
+
+    def record_server_status(self, wfs_url: str, status: Optional[bool], reason: str = "") -> None:
+        """
+        Remember the result of a ServerInfo lookup.
+
+        :param wfs_url: Base URL of the WFS server
+        :param status: True/False if the server answered, None if it could not be reached
+        :param reason: Why the server could not be reached
+        """
+        key = wfs_url.rstrip('/').lower()
+        if status is None:
+            if key not in self._unreachable_servers:
+                log(f"UmeMap server '{wfs_url}' could not be reached ({reason}).", Qgis.Warning)
+            self._unreachable_servers[key] = (time.time() + UNREACHABLE_RETRY_SECONDS, reason)
+            return
+
+        if self._unreachable_servers.pop(key, None):
+            log(f"UmeMap server '{wfs_url}' is reachable again.", Qgis.Info)
+        self._umemap_server_cache[key] = status
+
+    def unreachable_reason(self, wfs_url: str) -> str:
+        """Reason the server recently could not be reached, empty if it is not known to be down."""
+        unreachable = self._unreachable_servers.get(wfs_url.rstrip('/').lower())
+        if unreachable and unreachable[0] > time.time():
+            return unreachable[1]
+        return ""
 
     def is_umemap_layer(self, layer: QgsMapLayer) -> bool:
         """
@@ -224,7 +334,14 @@ class StyleService:
         if layer_name.startswith("CodeList_"):
             return False
 
-        return self._is_umemap_server(wfs_url)
+        status = self.server_status(wfs_url)
+        if status is None:
+            # Server can't be reached, trust what the project file says about the layer
+            return bool(layer.customProperty(UMEMAP_LAYER_PROPERTY, False))
+
+        if status:
+            layer.setCustomProperty(UMEMAP_LAYER_PROPERTY, True)
+        return status
 
     def has_local_style(self, layer: QgsMapLayer) -> bool:
         """
@@ -264,6 +381,63 @@ class StyleService:
 
         self._ensure_codelist_layers(layer)
         return True
+
+    def update_attribute_settings(self, layer: QgsVectorLayer) -> bool:
+        """
+        Update the layer's attribute settings (value maps, aliases, constraints,
+        form and attribute table) from the UmeMap server, keeping its symbology.
+        Fields added on the server since the layer was loaded are loaded too,
+        then any CodeList lookup layers the new settings need are auto-loaded.
+
+        :param layer: The layer to update
+        :return: True if the settings were applied
+        """
+        style_doc = self._fetch_style(layer)
+        if not style_doc:
+            return False
+
+        self._load_new_fields(layer, style_doc)
+
+        if not self.apply_attribute_config_to_layer(layer, style_doc):
+            return False
+
+        self._ensure_codelist_layers(layer)
+        return True
+
+    def _load_new_fields(self, layer: QgsVectorLayer, style_doc) -> None:
+        """
+        Reload the layer's fields from the server if the style configures fields
+        the layer doesn't have yet (attributes added in WebAdmin).
+        Skipped when the layer has unsaved edits, since they would be lost.
+
+        :param layer: Layer to update
+        :param style_doc: Style from the server
+        """
+        missing = server_field_names(style_doc) - set(layer.fields().names())
+        if not missing:
+            return
+
+        if layer.isModified():
+            log(f"New fields {sorted(missing)} on '{layer.name()}' were not loaded because the layer "
+                f"has unsaved edits. Save or discard them and update again.", Qgis.Warning)
+            return
+
+        was_editing = layer.isEditable()
+        if was_editing:
+            layer.rollBack()  # No unsaved edits, only ends the edit session
+
+        layer.setDataSource(layer.source(), layer.name(), layer.providerType(),
+                            QgsDataProvider.ProviderOptions())
+
+        if was_editing:
+            layer.startEditing()
+
+        still_missing = server_field_names(style_doc) - set(layer.fields().names())
+        if still_missing:
+            log(f"Fields {sorted(still_missing)} are configured on the server for '{layer.name()}' "
+                f"but are not published by the WFS.", Qgis.Warning)
+        else:
+            log(f"New fields {sorted(missing)} loaded on '{layer.name()}'.", Qgis.Info)
 
     def on_layer_added(self, layer: QgsMapLayer) -> None:
         """

@@ -47,6 +47,21 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
             "Vill du uppdatera stilen på {0} UmeMap-lager från servern?\n\n"
             "Symbologi och andra inställningar som gjorts i QGIS ersätts.",
         "Style updated on {0} of {1} UmeMap layers.": "Stilen har uppdaterats på {0} av {1} UmeMap-lager.",
+
+        # Update attribute settings
+        "Update Attribute Settings From UmeMap": "Uppdatera attributinställningar från UmeMap",
+        "Update Attribute Settings On All UmeMap Layers": "Uppdatera attributinställningar på alla UmeMap-lager",
+        "Update attribute settings": "Uppdatera attributinställningar",
+        "Update attribute settings - Error": "Uppdatera attributinställningar - Fel",
+        "Attribute settings updated on '{0}'.": "Attributinställningarna har uppdaterats på '{0}'.",
+        "Could not update attribute settings on '{0}'. "
+        "The layer keeps its current settings, see the UmeMap log for details.":
+            "Kunde inte uppdatera attributinställningarna på '{0}'. "
+            "Lagret behåller sina nuvarande inställningar, se UmeMap-loggen för detaljer.",
+        "Attribute settings updated on {0} of {1} UmeMap layers.":
+            "Attributinställningarna har uppdaterats på {0} av {1} UmeMap-lager.",
+        "Attribute settings updated on {0} of {1} UmeMap layers. See the UmeMap log for details.":
+            "Attributinställningarna har uppdaterats på {0} av {1} UmeMap-lager. Se UmeMap-loggen för detaljer.",
     },
 }
 

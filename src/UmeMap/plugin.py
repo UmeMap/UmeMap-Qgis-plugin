@@ -220,10 +220,11 @@ class UmeMap:
             browser_action.setCheckable(True)
             self.browser_dock.visibilityChanged.connect(browser_action.setChecked)
 
-        # Update styles on all UmeMap layers
-        update_all_action = self.style_actions.update_all_action
-        self.toolbar.addAction(update_all_action)
-        self.iface.addPluginToWebMenu(self.menu, update_all_action)
+        # Update styles / attribute settings on all UmeMap layers
+        for update_all_action in (self.style_actions.update_all_action,
+                                  self.style_actions.update_all_attributes_action):
+            self.toolbar.addAction(update_all_action)
+            self.iface.addPluginToWebMenu(self.menu, update_all_action)
 
         # Deferred loading of saved sources (after event loop starts)
         QTimer.singleShot(0, self.browser_dock.load_sources)
@@ -234,8 +235,10 @@ class UmeMap:
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         # Unregister style actions
-        if self.style_actions.update_all_action:
-            self.iface.removePluginWebMenu(self.menu, self.style_actions.update_all_action)
+        for update_all_action in (self.style_actions.update_all_action,
+                                  self.style_actions.update_all_attributes_action):
+            if update_all_action:
+                self.iface.removePluginWebMenu(self.menu, update_all_action)
         self.style_actions.unregister()
 
         # Remove layer browser dock
