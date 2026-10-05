@@ -174,8 +174,12 @@ class StyleService:
         headers = AuthManager.get_headers_from_layer(layer)
         client = UmeMapApiClient(wfs_url, headers)
 
-        content, error = client.fetch_vector_style(layer_name)
+        content, error, unreachable = client.fetch_vector_style(layer_name)
         if content is None:
+            if unreachable:
+                # Short-circuits the remaining layers on this server (e.g. when updating
+                # all layers) instead of waiting for a timeout on each one
+                self.record_server_status(wfs_url, None, error)
             log_kept_settings(layer, f"GetVectorStyle failed: {error}")
             return None
 
@@ -184,6 +188,8 @@ class StyleService:
             log_kept_settings(layer, f"invalid style from GetVectorStyle: {error}")
             return None
 
+        # The server answered with a style, so it is a reachable UmeMap server
+        self.record_server_status(wfs_url, True)
         return style_doc
 
     def apply_style_to_layer(self, layer: QgsMapLayer, style_doc) -> bool:

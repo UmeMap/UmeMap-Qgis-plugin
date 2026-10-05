@@ -10,6 +10,10 @@ import requests
 from qgis.PyQt.QtXml import QDomDocument
 
 
+# HTTP status codes meaning the server (or the proxy in front of it) is down
+UNREACHABLE_STATUS_CODES = (502, 503, 504)
+
+
 def _describe_request_error(error: Exception) -> str:
     """Short description of why a request failed, for the QGIS log."""
     if isinstance(error, requests.exceptions.Timeout):
@@ -110,29 +114,32 @@ class UmeMapApiClient:
         :param layer_name: Name of the WFS layer
         :return: QDomDocument with style, or None if failed
         """
-        content, _ = self.fetch_vector_style(layer_name)
+        content, _, _ = self.fetch_vector_style(layer_name)
         if content is None:
             return None
         return parse_style_document(content)[0]
 
-    def fetch_vector_style(self, layer_name: str) -> Tuple[Optional[bytes], str]:
+    def fetch_vector_style(self, layer_name: str) -> Tuple[Optional[bytes], str, bool]:
         """
         Fetch the raw vector style (QML) from UmeMap server.
-        Does not touch any Qt objects, so it can run in a background task.
 
         :param layer_name: Name of the WFS layer
-        :return: (content, "") on success, (None, reason) if failed
+        :return: (content, "", False) on success, (None, reason, unreachable) if failed, where
+            unreachable is True when the server itself can't be reached (timeout, connection
+            error, bad gateway/unavailable) rather than failing for this layer only
         """
         try:
             url = f"{self.base_url}?REQUEST=GetVectorStyle&TYPENAME={layer_name}"
             response = requests.get(url, headers=self.headers, verify=False, timeout=30)
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            return None, _describe_request_error(e), True
         except Exception as e:
-            return None, _describe_request_error(e)
+            return None, _describe_request_error(e), False
 
         if response.status_code != 200:
-            return None, f"HTTP {response.status_code}"
+            return None, f"HTTP {response.status_code}", response.status_code in UNREACHABLE_STATUS_CODES
 
-        return response.content, ""
+        return response.content, "", False
 
     def save_vector_style(self, layer_name: str, qml_data: bytes) -> ApiResponse:
         """
