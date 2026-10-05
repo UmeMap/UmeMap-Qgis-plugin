@@ -27,6 +27,7 @@
     <Compile Include="core\__init__.py" />
     <Compile Include="core\api_client.py" />
     <Compile Include="core\auth_manager.py" />
+    <Compile Include="core\translations.py" />
     <Compile Include="core\wfs_utils.py" />
     <Compile Include="features\__init__.py" />
     <Compile Include="features\layer_browser\__init__.py" />
@@ -60,10 +61,12 @@
     <Content Include="build.ps1" />
     <Content Include="icon.png" />
     <Content Include="icons\add.svg" />
-    <Content Include="icons\browser.svg" />
     <Content Include="icons\folder.svg" />
     <Content Include="icons\layer_vector.svg" />
     <Content Include="icons\refresh.svg" />
+    <Content Include="icons\style_save.svg" />
+    <Content Include="icons\style_update.svg" />
+    <Content Include="icons\style_update_all.svg" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="core\" />

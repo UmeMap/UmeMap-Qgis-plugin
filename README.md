@@ -14,7 +14,7 @@ Dockable panel for browsing WFS layers organized by keyword hierarchy, with sear
 
 ### Style Management
 
-Automatically load and save QML styles from/to UmeMap servers.
+Automatically load and save QML styles from/to UmeMap servers. Layers from a project file keep their own symbology, but their attribute settings (value maps, aliases, constraints, forms and attribute table) are refreshed from the server when the project is opened.
 
 ![Save style context menu](docs/images/style-context-menu.png)
 ![Style save confirmation](docs/images/style-save-confirm.png)
@@ -116,7 +116,7 @@ pip install pb_tool pyqt5 setuptools
 
 ### Layer Browser
 
-1. Open via **Plugins** → **UmeMap layer management** → **Layer Browser** (or the toolbar icon)
+1. Open via **Plugins** → **UmeMap layer management** → **Layer Browser** (or the **UmeMap** toolbar)
 2. Click the **+** button to add a WFS source (URL + optional authentication)
 3. The panel displays layers organized in folders based on WFS keywords
 4. Use the search bar to filter layers
@@ -125,7 +125,21 @@ pip install pb_tool pyqt5 setuptools
 ### Style Management
 
 - When a WFS layer from a UmeMap server is added, styles are automatically loaded
+- When a project is opened, attribute settings (value maps, aliases, constraints, forms, attribute table) on UmeMap layers are refreshed from the server while the layer's symbology is kept
+- Right-click any UmeMap WFS layer → **Update Style From UmeMap** to replace the layer's style with the style from the server
 - Right-click any UmeMap WFS layer → **Save Style To UmeMap** to save the current style back to the server
+- **UmeMap** toolbar → **Update Styles On All UmeMap Layers** to replace the style on every UmeMap layer in the project (asks for confirmation)
+
+### Toolbar
+
+The **UmeMap** toolbar contains:
+
+- **UmeMap Layer Browser** – show/hide the Layer Browser panel
+- **Update Styles On All UmeMap Layers** – reload the style from the server for all UmeMap layers
+
+### Translations
+
+UI strings are written in English and translated via `tr()`. Translations are kept in `core/translations.py` (currently Swedish) and are used when QGIS runs with a matching locale. No `lrelease` build step is needed.
 
 ---
 
@@ -137,6 +151,7 @@ src/UmeMap/
 ├── core/                               # Shared core logic (no UI)
 │   ├── api_client.py                   # UmeMap server API
 │   ├── auth_manager.py                 # QGIS auth integration
+│   ├── translations.py                 # UI string translations (Swedish)
 │   └── wfs_utils.py                    # WFS URI parsing
 ├── features/
 │   ├── layer_browser/                  # WFS Layer Browser feature
@@ -148,7 +163,7 @@ src/UmeMap/
 │   │   └── source_dialog.py            # Add/edit WFS source dialog
 │   └── style_manager/                  # Style management feature
 │       ├── style_service.py            # Save/load styles
-│       └── style_actions.py            # Context menu integration
+│       └── style_actions.py            # Context menu and toolbar actions
 ├── ui/                                 # UI components
 │   ├── dialogs.py                      # Dialog classes
 │   └── utils.py                        # UI helpers
@@ -182,8 +197,8 @@ Install **Plugin Reloader** in QGIS (Plugins > Manage and Install Plugins > All 
 After installation, you should see:
 
 - A new menu item under **Plugins** → **UmeMap layer management**
-- A toolbar icon for the **Layer Browser** panel
-- Right-click on any WFS vector layer → **Save Style To UmeMap** option
+- A **UmeMap** toolbar with **Layer Browser** and **Update Styles On All UmeMap Layers**
+- Right-click on any WFS vector layer → **Update Style From UmeMap** and **Save Style To UmeMap** options
 
 ---
 

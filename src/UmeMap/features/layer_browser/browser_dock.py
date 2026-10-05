@@ -27,6 +27,7 @@ from qgis.core import (
 from qgis.PyQt.QtNetwork import QNetworkRequest
 from qgis.PyQt.QtCore import QUrl
 
+from ...core.wfs_utils import build_wfs_layer_uri
 from ...ui.utils import log
 from .wfs_source import WfsSource
 from .wfs_parser import WfsCapabilitiesParser, WfsLayerInfo, WfsDescribeFeatureTypeParser
@@ -96,17 +97,7 @@ class WfsLayerTreeView(QTreeView):
         if not layer_info:
             return
 
-        # Build WFS URI
-        uri_parts = [
-            f"url='{layer_info['url']}'",
-            f"typename='{layer_info['name']}'",
-            f"version='2.0.0'",
-            f"srsname='{layer_info['crs']}'"
-        ]
-        if layer_info.get('authcfg'):
-            uri_parts.append(f"authcfg='{layer_info['authcfg']}'")
-
-        uri = ' '.join(uri_parts)
+        uri = _build_layer_uri(layer_info)
 
         # Create QGIS layer URI for mime data
         layer_uri = QgsMimeDataUtils.Uri()
@@ -122,6 +113,16 @@ class WfsLayerTreeView(QTreeView):
         drag = QDrag(self)
         drag.setMimeData(mime_data)
         drag.exec_(Qt.CopyAction)
+
+
+def _build_layer_uri(layer_info: dict) -> str:
+    """Build the WFS URI for a layer from the browser, fetching only features in the map view."""
+    return build_wfs_layer_uri(
+        layer_info['url'],
+        layer_info['name'],
+        crs=layer_info.get('crs'),
+        authcfg=layer_info.get('authcfg'),
+    )
 
 
 class BrowserDock(QgsDockWidget):
@@ -605,18 +606,7 @@ class BrowserDock(QgsDockWidget):
         if not layer_info:
             return
 
-        # Build WFS URI
-        uri_parts = [
-            f"url='{layer_info['url']}'",
-            f"typename='{layer_info['name']}'",
-            f"version='2.0.0'",
-            f"srsname='{layer_info['crs']}'"
-        ]
-
-        if layer_info.get('authcfg'):
-            uri_parts.append(f"authcfg='{layer_info['authcfg']}'")
-
-        uri = ' '.join(uri_parts)
+        uri = _build_layer_uri(layer_info)
 
         # Create and add layer
         layer = QgsVectorLayer(uri, layer_info['title'], 'WFS')

@@ -10,14 +10,15 @@ import os.path
 
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt, QTimer
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
-from qgis.core import QgsProject
+from qgis.PyQt.QtWidgets import QAction, QToolBar
+from qgis.core import QgsApplication, QgsProject
 from qgis.gui import QgsDockWidget, QgsGui
 
 # Initialize Qt resources from file resources.py
 from .resources import *
 
 # Import modules
+from .core.translations import create_translator
 from .features.style_manager import StyleService, StyleActions
 from .features.layer_browser import BrowserDock
 from .features.codelist_widget import UmeMapCodeListWidgetFactory, FieldLinkerRegistry
@@ -43,15 +44,20 @@ class UmeMap:
         self.plugin_dir = os.path.dirname(__file__)
 
         # Initialize locale
-        locale = QSettings().value('locale/userLocale')[0:2]
+        locale = (QSettings().value('locale/userLocale') or QgsApplication.locale() or '')[0:2]
         locale_path = os.path.join(
             self.plugin_dir,
             'i18n',
             'UmeMap_{}.qm'.format(locale))
 
+        self.translator = None
         if os.path.exists(locale_path):
             self.translator = QTranslator()
             self.translator.load(locale_path)
+        else:
+            self.translator = create_translator(locale)
+
+        if self.translator:
             QCoreApplication.installTranslator(self.translator)
 
         # Declare instance attributes
@@ -61,21 +67,25 @@ class UmeMap:
         # Check if plugin was started the first time in current QGIS session
         self.first_start = None
 
+        # Register field linker for attribute table CodeList linking
+        self._field_linker_registry = FieldLinkerRegistry()
+
         # Initialize services
         self.style_service = StyleService(self.tr)
-        self.style_actions = StyleActions(iface, self.tr)
+        self.style_actions = StyleActions(
+            iface, self.style_service, self.tr,
+            on_style_updated=self._field_linker_registry.refresh_layer,
+        )
 
-        # Layer browser dock (created in initGui)
+        # Layer browser dock and UmeMap toolbar (created in initGui)
         self.browser_dock = None
+        self.toolbar = None
 
         # Register custom editor widget for CodeList search
         self._codelist_widget_factory = UmeMapCodeListWidgetFactory()
         QgsGui.editorWidgetRegistry().registerWidget(
             "UmeMapCodeListSearch", self._codelist_widget_factory
         )
-
-        # Register field linker for attribute table CodeList linking
-        self._field_linker_registry = FieldLinkerRegistry()
 
         # Connect signals
         QgsProject.instance().layerWasAdded.connect(self.style_service.on_layer_added)
@@ -130,7 +140,7 @@ class UmeMap:
             action.setWhatsThis(whats_this)
 
         if add_to_toolbar:
-            self.iface.addToolBarIcon(action)
+            self.toolbar.addAction(action)
 
         if add_to_menu:
             self.iface.addPluginToWebMenu(self.menu, action)
@@ -145,6 +155,11 @@ class UmeMap:
         may not have run completely, leaving orphaned actions and dock widgets.
         """
         main_window = self.iface.mainWindow()
+
+        # Remove stale toolbar from a previous instance
+        for toolbar in main_window.findChildren(QToolBar, 'UmeMapToolbar'):
+            main_window.removeToolBar(toolbar)
+            toolbar.deleteLater()
 
         # Remove stale dock widgets from a previous instance
         for dock in main_window.findChildren(QgsDockWidget, 'UmeMapLayerBrowserDock'):
@@ -179,13 +194,17 @@ class UmeMap:
         # Register style management context menu
         self.style_actions.register()
 
+        # UmeMap toolbar
+        self.toolbar = self.iface.addToolBar(self.tr('UmeMap'))
+        self.toolbar.setObjectName('UmeMapToolbar')
+
         # Setup layer browser dock widget
         self.browser_dock = BrowserDock(self.iface)
         self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.browser_dock)
         self.browser_dock.hide()
 
         # Add toggle action for layer browser
-        icon_path = os.path.join(self.plugin_dir, 'icons', 'browser.svg')
+        icon_path = os.path.join(self.plugin_dir, 'icon.png')
         self.add_action(
             icon_path,
             text=self.tr('UmeMap Layer Browser'),
@@ -201,6 +220,11 @@ class UmeMap:
             browser_action.setCheckable(True)
             self.browser_dock.visibilityChanged.connect(browser_action.setChecked)
 
+        # Update styles on all UmeMap layers
+        update_all_action = self.style_actions.update_all_action
+        self.toolbar.addAction(update_all_action)
+        self.iface.addPluginToWebMenu(self.menu, update_all_action)
+
         # Deferred loading of saved sources (after event loop starts)
         QTimer.singleShot(0, self.browser_dock.load_sources)
 
@@ -210,6 +234,8 @@ class UmeMap:
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         # Unregister style actions
+        if self.style_actions.update_all_action:
+            self.iface.removePluginWebMenu(self.menu, self.style_actions.update_all_action)
         self.style_actions.unregister()
 
         # Remove layer browser dock
@@ -221,9 +247,19 @@ class UmeMap:
         # Remove toolbar actions and menu entries
         for action in self.actions:
             self.iface.removePluginWebMenu(self.menu, action)
-            self.iface.removeToolBarIcon(action)
             action.deleteLater()
         self.actions.clear()
+
+        # Remove UmeMap toolbar
+        if self.toolbar:
+            self.iface.mainWindow().removeToolBar(self.toolbar)
+            self.toolbar.deleteLater()
+            self.toolbar = None
+
+        # Remove translator
+        if self.translator:
+            QCoreApplication.removeTranslator(self.translator)
+            self.translator = None
 
         # Clean up field linkers
         self._field_linker_registry.unregister_all()
