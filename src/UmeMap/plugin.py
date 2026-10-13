@@ -22,6 +22,7 @@ from .core.translations import create_translator
 from .features.style_manager import StyleService, StyleActions
 from .features.layer_browser import BrowserDock
 from .features.codelist_widget import UmeMapCodeListWidgetFactory, FieldLinkerRegistry
+from .features.edit_refresh import CommitRefresher
 from .ui import UmeMapDialog
 
 
@@ -77,6 +78,9 @@ class UmeMap:
             on_style_updated=self._field_linker_registry.refresh_layer,
         )
 
+        # Reload layers after saving so values set by the database are shown
+        self._commit_refresher = CommitRefresher(self.style_service.is_umemap_layer)
+
         # Layer browser dock and UmeMap toolbar (created in initGui)
         self.browser_dock = None
         self.toolbar = None
@@ -90,6 +94,8 @@ class UmeMap:
         # Connect signals
         QgsProject.instance().layerWasAdded.connect(self.style_service.on_layer_added)
         QgsProject.instance().layerWasAdded.connect(self._field_linker_registry.register_layer)
+        QgsProject.instance().layerWasAdded.connect(self._commit_refresher.register_layer)
+        self._commit_refresher.register_existing_layers()
 
     def tr(self, message):
         """
@@ -267,6 +273,7 @@ class UmeMap:
 
         # Clean up field linkers
         self._field_linker_registry.unregister_all()
+        self._commit_refresher.unregister_all()
 
         # Disconnect signals
         try:
@@ -275,6 +282,10 @@ class UmeMap:
             pass
         try:
             QgsProject.instance().layerWasAdded.disconnect(self._field_linker_registry.register_layer)
+        except Exception:  # nosec B110
+            pass
+        try:
+            QgsProject.instance().layerWasAdded.disconnect(self._commit_refresher.register_layer)
         except Exception:  # nosec B110
             pass
 
