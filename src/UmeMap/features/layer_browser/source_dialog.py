@@ -105,7 +105,7 @@ class SourceDialog(QDialog):
 
         # Dialog buttons
         self.button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         self.button_box.accepted.connect(self._on_accept)
         self.button_box.rejected.connect(self.reject)
@@ -225,8 +225,8 @@ class SourceDialog(QDialog):
         # Use redirect policy compatible with both Qt 5 and Qt 6
         try:
             request.setAttribute(
-                QNetworkRequest.RedirectPolicyAttribute,
-                QNetworkRequest.NoLessSafeRedirectPolicy
+                QNetworkRequest.Attribute.RedirectPolicyAttribute,
+                QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy
             )
         except AttributeError:
             request.setAttribute(QNetworkRequest.FollowRedirectsAttribute, True)

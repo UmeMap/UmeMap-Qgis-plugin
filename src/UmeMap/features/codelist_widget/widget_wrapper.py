@@ -56,9 +56,9 @@ class UmeMapCodeListWidgetWrapper(QgsEditorWidgetWrapper):
         # Setup autocomplete model and completer
         self._model = QStringListModel()
         self._completer = QCompleter(self._model, self._widget)
-        self._completer.setCaseSensitivity(Qt.CaseInsensitive)
-        self._completer.setFilterMode(Qt.MatchContains)
-        self._completer.setCompletionMode(QCompleter.PopupCompletion)
+        self._completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self._completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        self._completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         self._completer.setMaxVisibleItems(15)
         self._widget.setCompleter(self._completer)
 

@@ -50,17 +50,17 @@ class WfsLayerTreeView(QTreeView):
         super().__init__(parent)
         self.drag_start_pos = None
         self.setDragEnabled(True)
-        self.setDragDropMode(QAbstractItemView.DragOnly)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
 
     def mousePressEvent(self, event):
         """Record drag start position on mouse press."""
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.drag_start_pos = event.pos()
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
         """Start drag operation when mouse moves with left button held."""
-        if not (event.buttons() & Qt.LeftButton):
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
             return
 
         if self.drag_start_pos is None:
@@ -112,7 +112,7 @@ class WfsLayerTreeView(QTreeView):
         # Start drag
         drag = QDrag(self)
         drag.setMimeData(mime_data)
-        drag.exec_(Qt.CopyAction)
+        drag.exec(Qt.DropAction.CopyAction)
 
 
 def _build_layer_uri(layer_info: dict) -> str:
@@ -194,8 +194,8 @@ class BrowserDock(QgsDockWidget):
         self.tree_view = WfsLayerTreeView()
         self.tree_view.setModel(self.proxy_model)
         self.tree_view.setHeaderHidden(True)
-        self.tree_view.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tree_view.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tree_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree_view.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.tree_view.setExpandsOnDoubleClick(False)  # We handle double-click ourselves
         layout.addWidget(self.tree_view)
 
@@ -289,8 +289,8 @@ class BrowserDock(QgsDockWidget):
         try:
             # Qt 5.9+ / Qt 6
             request.setAttribute(
-                QNetworkRequest.RedirectPolicyAttribute,
-                QNetworkRequest.NoLessSafeRedirectPolicy
+                QNetworkRequest.Attribute.RedirectPolicyAttribute,
+                QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy
             )
         except AttributeError:
             # Fallback for older Qt 5 versions
@@ -385,8 +385,8 @@ class BrowserDock(QgsDockWidget):
         # Use redirect policy compatible with both Qt 5 and Qt 6
         try:
             request.setAttribute(
-                QNetworkRequest.RedirectPolicyAttribute,
-                QNetworkRequest.NoLessSafeRedirectPolicy
+                QNetworkRequest.Attribute.RedirectPolicyAttribute,
+                QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy
             )
         except AttributeError:
             request.setAttribute(QNetworkRequest.FollowRedirectsAttribute, True)
@@ -487,7 +487,7 @@ class BrowserDock(QgsDockWidget):
         from .source_dialog import SourceDialog
 
         dialog = SourceDialog(self)
-        if dialog.exec_():
+        if dialog.exec():
             source = dialog.get_source()
             if source:
                 # Save and load the new source
@@ -506,7 +506,7 @@ class BrowserDock(QgsDockWidget):
             source_index = source_index.parent()
 
         source_id = source_index.data(ItemRole.SourceId)
-        source_name = source_index.data(Qt.DisplayRole)
+        source_name = source_index.data(Qt.ItemDataRole.DisplayRole)
 
         if not source_id:
             return
@@ -516,11 +516,11 @@ class BrowserDock(QgsDockWidget):
             self,
             "Remove source",
             f"Do you want to remove the source '{source_name}'?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
 
-        if result == QMessageBox.Yes:
+        if result == QMessageBox.StandardButton.Yes:
             self.settings.remove_source(source_id)
             self.model.remove_wfs_source(source_id)
             self.parser.clear_cache()
@@ -590,7 +590,7 @@ class BrowserDock(QgsDockWidget):
             action_remove.triggered.connect(self._on_remove_source)
 
         if not menu.isEmpty():
-            menu.exec_(self.tree_view.viewport().mapToGlobal(pos))
+            menu.exec(self.tree_view.viewport().mapToGlobal(pos))
 
     def _on_filter_changed(self, text: str) -> None:
         """Handle filter text change."""
@@ -664,7 +664,7 @@ class BrowserDock(QgsDockWidget):
         from .source_dialog import SourceDialog
 
         dialog = SourceDialog(self, source)
-        if dialog.exec_():
+        if dialog.exec():
             updated_source = dialog.get_source()
             if updated_source:
                 # Preserve ID
