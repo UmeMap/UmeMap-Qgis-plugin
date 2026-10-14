@@ -46,7 +46,7 @@ UNREACHABLE_RETRY_SECONDS = 30
 def log_kept_settings(layer: QgsMapLayer, reason: str) -> None:
     """Log that a layer keeps its last known settings because the server style could not be used."""
     log(f"Could not fetch style for '{layer.name()}' ({reason}). "
-        f"Keeping the last known settings from the project.", Qgis.Warning)
+        f"Keeping the last known settings from the project.", Qgis.MessageLevel.Warning)
 
 
 def server_field_names(style_doc) -> Set[str]:
@@ -157,12 +157,12 @@ class StyleService:
         wfs_url, layer_name = parse_wfs_data_source(layer)
 
         if not wfs_url or not layer_name:
-            log(f"Could not parse WFS data source for '{layer.name()}' (url={wfs_url}, typename={layer_name}).", Qgis.Warning)
+            log(f"Could not parse WFS data source for '{layer.name()}' (url={wfs_url}, typename={layer_name}).", Qgis.MessageLevel.Warning)
             return None
 
         # Check if server is UmeMap
         if not self.is_umemap_layer(layer):
-            log(f"Server '{wfs_url}' is not a UmeMap server.", Qgis.Warning)
+            log(f"Server '{wfs_url}' is not a UmeMap server.", Qgis.MessageLevel.Warning)
             return None
 
         unreachable_reason = self.unreachable_reason(wfs_url)
@@ -205,10 +205,10 @@ class StyleService:
         if import_result[0]:
             layer.setCustomProperty("umemap_style_applied", True)
             layer.triggerRepaint()
-            log(f"UmeMap style applied on '{layer.name()}'.", Qgis.Info)
+            log(f"UmeMap style applied on '{layer.name()}'.", Qgis.MessageLevel.Info)
             return True
         else:
-            log(f"Could not import style to '{layer.name()}'.", Qgis.Warning)
+            log(f"Could not import style to '{layer.name()}'.", Qgis.MessageLevel.Warning)
             return False
 
     def apply_attribute_config_to_layer(self, layer: QgsMapLayer, style_doc, categories=ATTRIBUTE_STYLE_CATEGORIES) -> bool:
@@ -230,10 +230,10 @@ class StyleService:
         import_result = layer.importNamedStyle(style_doc, categories)
 
         if import_result[0]:
-            log(f"UmeMap attribute settings updated on '{layer.name()}'.", Qgis.Info)
+            log(f"UmeMap attribute settings updated on '{layer.name()}'.", Qgis.MessageLevel.Info)
             return True
         else:
-            log(f"Could not update attribute settings on '{layer.name()}': {import_result[1]}", Qgis.Warning)
+            log(f"Could not update attribute settings on '{layer.name()}': {import_result[1]}", Qgis.MessageLevel.Warning)
             return False
 
     def _copy_expression_fields(self, layer: QgsMapLayer, style_doc) -> None:
@@ -301,12 +301,12 @@ class StyleService:
         key = wfs_url.rstrip('/').lower()
         if status is None:
             if key not in self._unreachable_servers:
-                log(f"UmeMap server '{wfs_url}' could not be reached ({reason}).", Qgis.Warning)
+                log(f"UmeMap server '{wfs_url}' could not be reached ({reason}).", Qgis.MessageLevel.Warning)
             self._unreachable_servers[key] = (time.time() + UNREACHABLE_RETRY_SECONDS, reason)
             return
 
         if self._unreachable_servers.pop(key, None):
-            log(f"UmeMap server '{wfs_url}' is reachable again.", Qgis.Info)
+            log(f"UmeMap server '{wfs_url}' is reachable again.", Qgis.MessageLevel.Info)
         self._umemap_server_cache[key] = status
 
     def unreachable_reason(self, wfs_url: str) -> str:
@@ -419,7 +419,7 @@ class StyleService:
 
         if layer.isModified():
             log(f"New fields {sorted(missing)} on '{layer.name()}' were not loaded because the layer "
-                f"has unsaved edits. Save or discard them and update again.", Qgis.Warning)
+                f"has unsaved edits. Save or discard them and update again.", Qgis.MessageLevel.Warning)
             return
 
         was_editing = layer.isEditable()
@@ -435,9 +435,9 @@ class StyleService:
         still_missing = server_field_names(style_doc) - set(layer.fields().names())
         if still_missing:
             log(f"Fields {sorted(still_missing)} are configured on the server for '{layer.name()}' "
-                f"but are not published by the WFS.", Qgis.Warning)
+                f"but are not published by the WFS.", Qgis.MessageLevel.Warning)
         else:
-            log(f"New fields {sorted(missing)} loaded on '{layer.name()}'.", Qgis.Info)
+            log(f"New fields {sorted(missing)} loaded on '{layer.name()}'.", Qgis.MessageLevel.Info)
 
     def on_layer_added(self, layer: QgsMapLayer) -> None:
         """
@@ -456,7 +456,7 @@ class StyleService:
                 return
 
             if self.has_local_style(layer):
-                log(f"Local style used for '{layer.name()}', updating attribute settings only.", Qgis.Info)
+                log(f"Local style used for '{layer.name()}', updating attribute settings only.", Qgis.MessageLevel.Info)
                 success = self.load_from_server(layer, ATTRIBUTE_STYLE_CATEGORIES)
             else:
                 success = self.load_from_server(layer)
@@ -464,9 +464,9 @@ class StyleService:
             if success:
                 self._ensure_codelist_layers(layer)
             else:
-                log(f"Style could not be applied to '{layer.name()}'.", Qgis.Warning)
+                log(f"Style could not be applied to '{layer.name()}'.", Qgis.MessageLevel.Warning)
         except Exception as e:
-            log(f"[ERROR] on_layer_added failed for '{layer.name()}': {e}", Qgis.Critical)
+            log(f"[ERROR] on_layer_added failed for '{layer.name()}': {e}", Qgis.MessageLevel.Critical)
 
     def _ensure_codelist_layers(self, layer: QgsMapLayer) -> None:
         """
@@ -492,7 +492,7 @@ class StyleService:
 
         for codelist_layer_name in needed_layers:
             if codelist_layer_name in loaded_names:
-                log(f"CodeList layer '{codelist_layer_name}' already loaded.", Qgis.Info)
+                log(f"CodeList layer '{codelist_layer_name}' already loaded.", Qgis.MessageLevel.Info)
                 continue
 
             self._load_codelist_layer(wfs_url, codelist_layer_name, authcfg)
@@ -530,7 +530,7 @@ class StyleService:
                             codelist_refs.add(layer_name)
 
         except Exception as e:
-            log(f"Error parsing style for ValueRelation refs: {e}", Qgis.Warning)
+            log(f"Error parsing style for ValueRelation refs: {e}", Qgis.MessageLevel.Warning)
 
         return codelist_refs
 
@@ -562,9 +562,9 @@ class StyleService:
             task = _CodeListPrefetchTask(layer_name, codelist_layer)
             QgsApplication.taskManager().addTask(task)
 
-            log(f"Auto-loading CodeList layer '{layer_name}' in background...", Qgis.Info)
+            log(f"Auto-loading CodeList layer '{layer_name}' in background...", Qgis.MessageLevel.Info)
         else:
-            log(f"Failed to load CodeList layer '{layer_name}' from '{wfs_url}'.", Qgis.Warning)
+            log(f"Failed to load CodeList layer '{layer_name}' from '{wfs_url}'.", Qgis.MessageLevel.Warning)
 
 
 class _CodeListPrefetchTask(QgsTask):
@@ -590,6 +590,6 @@ class _CodeListPrefetchTask(QgsTask):
     def finished(self, result: bool) -> None:
         """Called on main thread when task completes."""
         if result:
-            log(f"CodeList '{self._layer_name}' loaded ({self._count} values).", Qgis.Info)
+            log(f"CodeList '{self._layer_name}' loaded ({self._count} values).", Qgis.MessageLevel.Info)
         else:
-            log(f"CodeList '{self._layer_name}' prefetch failed or cancelled.", Qgis.Warning)
+            log(f"CodeList '{self._layer_name}' prefetch failed or cancelled.", Qgis.MessageLevel.Warning)

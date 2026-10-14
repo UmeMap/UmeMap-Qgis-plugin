@@ -207,7 +207,7 @@ class UmeMap:
 
         # Setup layer browser dock widget
         self.browser_dock = BrowserDock(self.iface)
-        self.iface.addDockWidget(Qt.LeftDockWidgetArea, self.browser_dock)
+        self.iface.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.browser_dock)
         self.browser_dock.hide()
 
         # Add toggle action for layer browser
@@ -301,7 +301,7 @@ class UmeMap:
         self.dlg.show()
 
         # Run the dialog event loop
-        result = self.dlg.exec_()
+        result = self.dlg.exec()
 
         # See if OK was pressed
         if result:
