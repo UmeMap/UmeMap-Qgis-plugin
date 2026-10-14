@@ -14,17 +14,17 @@ from .wfs_parser import WfsLayerInfo
 
 class ItemRole(IntEnum):
     """Custom data roles for tree items."""
-    ItemType = Qt.UserRole + 1        # 'source', 'folder', 'layer'
-    SourceId = Qt.UserRole + 2        # WfsSource.id
-    LayerName = Qt.UserRole + 3       # WFS typename
-    LayerTitle = Qt.UserRole + 4      # Human-readable title
-    LayerAbstract = Qt.UserRole + 5   # Description
-    WfsUrl = Qt.UserRole + 6          # Service URL
-    AuthCfg = Qt.UserRole + 7         # Auth config ID
-    Crs = Qt.UserRole + 8             # Default CRS
-    Keywords = Qt.UserRole + 9        # Original keywords list
-    FolderPath = Qt.UserRole + 10     # Full folder path
-    GeometryType = Qt.UserRole + 11   # Geometry type: Point, LineString, Polygon, etc.
+    ItemType = Qt.ItemDataRole.UserRole + 1        # 'source', 'folder', 'layer'
+    SourceId = Qt.ItemDataRole.UserRole + 2        # WfsSource.id
+    LayerName = Qt.ItemDataRole.UserRole + 3       # WFS typename
+    LayerTitle = Qt.ItemDataRole.UserRole + 4      # Human-readable title
+    LayerAbstract = Qt.ItemDataRole.UserRole + 5   # Description
+    WfsUrl = Qt.ItemDataRole.UserRole + 6          # Service URL
+    AuthCfg = Qt.ItemDataRole.UserRole + 7         # Auth config ID
+    Crs = Qt.ItemDataRole.UserRole + 8             # Default CRS
+    Keywords = Qt.ItemDataRole.UserRole + 9        # Original keywords list
+    FolderPath = Qt.ItemDataRole.UserRole + 10     # Full folder path
+    GeometryType = Qt.ItemDataRole.UserRole + 11   # Geometry type: Point, LineString, Polygon, etc.
 
 
 class LayerTreeModel(QStandardItemModel):
@@ -332,7 +332,7 @@ class LayerFilterProxyModel(QSortFilterProxyModel):
     def __init__(self, parent=None):
         """Initialize the filter proxy model."""
         super().__init__(parent)
-        self.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         self.setRecursiveFilteringEnabled(True)
 
     def filterAcceptsRow(self, source_row: int, source_parent) -> bool:

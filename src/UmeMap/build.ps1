@@ -98,6 +98,10 @@ function Compile-Resources {
         Write-Host "  pyrcc5 misslyckades. Kontrollera att pyrcc5 finns i PATH." -ForegroundColor Red
         exit 1
     }
+    # pyrcc5 importerar från PyQt5; qgis.PyQt fungerar med både Qt5 och Qt6
+    $resources = Get-Content "resources.py" -Raw
+    $resources = $resources -replace '(?m)^from PyQt5 import QtCore', 'from qgis.PyQt import QtCore'
+    Set-Content "resources.py" -Value $resources -NoNewline
 }
 
 function Deploy-ToQgis {
