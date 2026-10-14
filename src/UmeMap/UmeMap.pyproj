@@ -39,6 +39,8 @@
     <Compile Include="features\layer_browser\source_dialog.py" />
     <Compile Include="features\layer_browser\wfs_parser.py" />
     <Compile Include="features\layer_browser\wfs_source.py" />
+    <Compile Include="features\edit_refresh\__init__.py" />
+    <Compile Include="features\edit_refresh\commit_refresher.py" />
     <Compile Include="features\style_manager\__init__.py" />
     <Compile Include="features\style_manager\style_actions.py" />
     <Compile Include="features\style_manager\style_service.py" />
@@ -75,6 +77,7 @@
   <ItemGroup>
     <Folder Include="core\" />
     <Folder Include="features\" />
+    <Folder Include="features\edit_refresh\" />
     <Folder Include="features\layer_browser\" />
     <Folder Include="features\style_manager\" />
     <Folder Include="icons\" />

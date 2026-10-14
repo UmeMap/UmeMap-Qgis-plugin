@@ -19,6 +19,10 @@ Automatically load and save QML styles from/to UmeMap servers. Layers from a pro
 ![Save style context menu](docs/images/style-context-menu.png)
 ![Style save confirmation](docs/images/style-save-confirm.png)
 
+### Values Set by the Database
+
+When new or changed features are saved on a UmeMap layer, the layer is reloaded from the server. Values the database sets, such as created date and user, revision date and generated attributes, are shown right away instead of empty fields. A layer that still has unsaved edits after the save is left as it is.
+
 ### Authentication
 
 Integrates with QGIS authentication manager for secure WFS connections.
