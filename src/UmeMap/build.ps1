@@ -28,8 +28,9 @@ if (-not $qgisPluginPath) {
 }
 
 # Auto-versioning från git-taggar
-$today = Get-Date -Format "yyyyMMdd"
-$now = Get-Date -Format "HHmm"
+# Versionen får inte innehålla +<datum>: plugins.qgis.org sorterar versioner som text
+# och fyller bara ut rena siffror, så 0.11+20261014 räknades som äldre än 0.9+20260317.
+$now = Get-Date -Format "yyyyMMddHHmm"
 $latestTag = git describe --tags --abbrev=0 --match "v*" 2>$null
 
 if ($latestTag) {
@@ -42,11 +43,12 @@ if ($latestTag) {
     $tagCommit = git rev-list -n 1 $latestTag
     $headCommit = git rev-parse HEAD
     if ($tagCommit -eq $headCommit) {
-        # Produktions-build: exakt på tagg, bara datum
-        $version = "$major.$minor+$today"
+        # Produktions-build: exakt på tagg, bara taggens version
+        $version = $tagVersion
     } else {
-        # Dev-build: efter tagg, datum + tid för unika versioner
-        $version = "$major.$($minor + 1)+$today.$now"
+        # Dev-build: efter tagg, PEP 440-dev-version (som QGIS jämför med) så att den
+        # räknas som nyare än taggen men äldre än nästa release
+        $version = "$major.$($minor + 1).dev$now"
     }
 } else {
     Write-Host "  Ingen v*-tagg hittad. Ange version manuellt i metadata.txt" -ForegroundColor Red

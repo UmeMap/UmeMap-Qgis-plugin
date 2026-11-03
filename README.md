@@ -99,7 +99,7 @@ pip install pb_tool pyqt5 setuptools
 1. Open **QGIS**
 2. Go to **Plugins** → **Manage and Install Plugins...**
 3. Click the **Install from ZIP** tab
-4. Click **Browse** and locate the ZIP file (e.g., `deploy/UmeMap-0.7+20260206.zip`)
+4. Click **Browse** and locate the ZIP file (e.g., `deploy/UmeMap-0.12.zip`)
 5. Click **Install Plugin**
 6. The plugin will appear under **Plugins** → **UmeMap layer management**
 
