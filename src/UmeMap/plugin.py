@@ -23,6 +23,7 @@ from .features.style_manager import StyleService, StyleActions
 from .features.layer_browser import BrowserDock
 from .features.codelist_widget import UmeMapCodeListWidgetFactory, FieldLinkerRegistry
 from .features.edit_refresh import CommitRefresher
+from .features.value_map_display import StoredValueDisplay, StoredValueMapWidgetFactory, WIDGET_TYPE
 from .ui import UmeMapDialog
 
 
@@ -71,11 +72,14 @@ class UmeMap:
         # Register field linker for attribute table CodeList linking
         self._field_linker_registry = FieldLinkerRegistry()
 
+        # Show the stored value of marked value maps, such as roles, outside the editor
+        self._stored_value_display = StoredValueDisplay()
+
         # Initialize services
         self.style_service = StyleService(self.tr)
         self.style_actions = StyleActions(
             iface, self.style_service, self.tr,
-            on_style_updated=self._field_linker_registry.refresh_layer,
+            on_style_updated=self._on_style_updated,
         )
 
         # Reload layers after saving so values set by the database are shown
@@ -90,12 +94,22 @@ class UmeMap:
         QgsGui.editorWidgetRegistry().registerWidget(
             "UmeMapCodeListSearch", self._codelist_widget_factory
         )
+        self._stored_value_widget_factory = StoredValueMapWidgetFactory()
+        QgsGui.editorWidgetRegistry().registerWidget(WIDGET_TYPE, self._stored_value_widget_factory)
 
         # Connect signals
         QgsProject.instance().layerWasAdded.connect(self.style_service.on_layer_added)
         QgsProject.instance().layerWasAdded.connect(self._field_linker_registry.register_layer)
         QgsProject.instance().layerWasAdded.connect(self._commit_refresher.register_layer)
+        QgsProject.instance().layerWasAdded.connect(self._stored_value_display.apply)
+        QgsProject.instance().writeMapLayer.connect(self._stored_value_display.on_write_map_layer)
         self._commit_refresher.register_existing_layers()
+        self._stored_value_display.register_existing_layers()
+
+    def _on_style_updated(self, layer):
+        """Re-read the widget configs of a layer whose style or attribute settings were replaced."""
+        self._field_linker_registry.refresh_layer(layer)
+        self._stored_value_display.apply(layer)
 
     def tr(self, message):
         """
@@ -274,6 +288,7 @@ class UmeMap:
         # Clean up field linkers
         self._field_linker_registry.unregister_all()
         self._commit_refresher.unregister_all()
+        self._stored_value_display.restore_all()
 
         # Disconnect signals
         try:
@@ -286,6 +301,14 @@ class UmeMap:
             pass
         try:
             QgsProject.instance().layerWasAdded.disconnect(self._commit_refresher.register_layer)
+        except Exception:  # nosec B110
+            pass
+        try:
+            QgsProject.instance().layerWasAdded.disconnect(self._stored_value_display.apply)
+        except Exception:  # nosec B110
+            pass
+        try:
+            QgsProject.instance().writeMapLayer.disconnect(self._stored_value_display.on_write_map_layer)
         except Exception:  # nosec B110
             pass
 

@@ -23,6 +23,10 @@ Automatically load and save QML styles from/to UmeMap servers. Layers from a pro
 
 When new or changed features are saved on a UmeMap layer, the layer is reloaded from the server. Values the database sets, such as created date and user, revision date and generated attributes, are shown right away instead of empty fields. A layer that still has unsaved edits after the save is left as it is.
 
+### Stored Values in the Attribute Table
+
+Role fields such as Driftsansvarig list the whole actor hierarchy ("Gator och Parker / Parkdrift") but store only the actor ("Parkdrift"). The attribute table, identify results and labels show the stored value, while the form and the table editor still offer the hierarchical list. The server marks these fields; without the plugin they show the hierarchy everywhere.
+
 ### Authentication
 
 Integrates with QGIS authentication manager for secure WFS connections.
@@ -95,7 +99,7 @@ pip install pb_tool pyqt5 setuptools
 1. Open **QGIS**
 2. Go to **Plugins** → **Manage and Install Plugins...**
 3. Click the **Install from ZIP** tab
-4. Click **Browse** and locate the ZIP file (e.g., `deploy/UmeMap-0.7+20260206.zip`)
+4. Click **Browse** and locate the ZIP file (e.g., `deploy/UmeMap-1.0.zip`)
 5. Click **Install Plugin**
 6. The plugin will appear under **Plugins** → **UmeMap layer management**
 
@@ -169,9 +173,11 @@ src/UmeMap/
 │   │   ├── layer_tree_model.py         # Tree model with keyword hierarchy
 │   │   ├── settings_manager.py         # Persistent settings
 │   │   └── source_dialog.py            # Add/edit WFS source dialog
-│   └── style_manager/                  # Style management feature
-│       ├── style_service.py            # Save/load styles
-│       └── style_actions.py            # Context menu and toolbar actions
+│   ├── style_manager/                  # Style management feature
+│   │   ├── style_service.py            # Save/load styles
+│   │   └── style_actions.py            # Context menu and toolbar actions
+│   └── value_map_display/              # Stored value shown outside the editor
+│       └── stored_value_display.py     # Widget type and layer switching
 ├── ui/                                 # UI components
 │   ├── dialogs.py                      # Dialog classes
 │   └── utils.py                        # UI helpers
