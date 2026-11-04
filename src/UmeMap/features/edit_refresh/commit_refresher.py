@@ -84,7 +84,7 @@ class CommitRefresher:
 
         # Unsaved edits made after the save would be lost, so leave the layer as it is
         if layer.isEditable() and layer.isModified():
-            log(f"'{layer.name()}' has unsaved edits and was not reloaded from UmeMap.", Qgis.Info)
+            log(f"'{layer.name()}' has unsaved edits and was not reloaded from UmeMap.", Qgis.MessageLevel.Info)
             return
 
         try:
@@ -93,6 +93,6 @@ class CommitRefresher:
 
             layer.reload()
             layer.triggerRepaint()
-            log(f"Reloaded '{layer.name()}' from UmeMap to show the values set by the database.", Qgis.Info)
+            log(f"Reloaded '{layer.name()}' from UmeMap to show the values set by the database.", Qgis.MessageLevel.Info)
         except Exception as e:
-            log(f"[ERROR] Could not reload '{layer.name()}' after saving: {e}", Qgis.Warning)
+            log(f"[ERROR] Could not reload '{layer.name()}' after saving: {e}", Qgis.MessageLevel.Warning)

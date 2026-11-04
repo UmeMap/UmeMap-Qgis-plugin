@@ -135,7 +135,7 @@ class StyleActions:
             self.iface.messageBar().pushMessage(
                 self._tr("Save"),
                 self._tr("Saved styles"),
-                level=Qgis.Success,
+                level=Qgis.MessageLevel.Success,
                 duration=5
             )
         else:
@@ -168,7 +168,7 @@ class StyleActions:
             )
             return
 
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             success = self._update_layer_style(layer)
         finally:
@@ -178,20 +178,20 @@ class StyleActions:
             self.iface.messageBar().pushMessage(
                 self._tr("Update style"),
                 self._tr("Style updated on '{0}'.").format(layer.name()),
-                level=Qgis.Success,
+                level=Qgis.MessageLevel.Success,
                 duration=5
             )
         else:
             self.iface.messageBar().pushMessage(
                 self._tr("Update style"),
                 self._tr("Could not update style on '{0}'. See the UmeMap log for details.").format(layer.name()),
-                level=Qgis.Warning,
+                level=Qgis.MessageLevel.Warning,
                 duration=10
             )
 
     def _on_update_all_styles(self) -> None:
         """Handler for Update Styles On All UmeMap Layers action (toolbar/menu)."""
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             layers = self.style_service.umemap_layers()
         finally:
@@ -201,7 +201,7 @@ class StyleActions:
             self.iface.messageBar().pushMessage(
                 self._tr("Update style"),
                 self._tr("No UmeMap layers in the project."),
-                level=Qgis.Info,
+                level=Qgis.MessageLevel.Info,
                 duration=5
             )
             return
@@ -211,13 +211,13 @@ class StyleActions:
             self._tr("Update style"),
             self._tr("Update the style on {0} UmeMap layers from the server?\n\n"
                      "Symbology and other settings made in QGIS will be replaced.").format(len(layers)),
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
-        if answer != QMessageBox.Yes:
+        if answer != QMessageBox.StandardButton.Yes:
             return
 
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             updated = sum(1 for layer in layers if self._update_layer_style(layer))
         finally:
@@ -226,7 +226,7 @@ class StyleActions:
         self.iface.messageBar().pushMessage(
             self._tr("Update style"),
             self._tr("Style updated on {0} of {1} UmeMap layers.").format(updated, len(layers)),
-            level=Qgis.Success if updated == len(layers) else Qgis.Warning,
+            level=Qgis.MessageLevel.Success if updated == len(layers) else Qgis.MessageLevel.Warning,
             duration=5
         )
 
@@ -248,7 +248,7 @@ class StyleActions:
             )
             return
 
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             success = self._update_layer_attributes(layer)
         finally:
@@ -258,7 +258,7 @@ class StyleActions:
             self.iface.messageBar().pushMessage(
                 self._tr("Update attribute settings"),
                 self._tr("Attribute settings updated on '{0}'.").format(layer.name()),
-                level=Qgis.Success,
+                level=Qgis.MessageLevel.Success,
                 duration=5
             )
         else:
@@ -266,13 +266,13 @@ class StyleActions:
                 self._tr("Update attribute settings"),
                 self._tr("Could not update attribute settings on '{0}'. "
                          "The layer keeps its current settings, see the UmeMap log for details.").format(layer.name()),
-                level=Qgis.Warning,
+                level=Qgis.MessageLevel.Warning,
                 duration=10
             )
 
     def _on_update_all_attributes(self) -> None:
         """Handler for Update Attribute Settings On All UmeMap Layers action (toolbar/menu)."""
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             layers = self.style_service.umemap_layers()
             updated = sum(1 for layer in layers if self._update_layer_attributes(layer))
@@ -283,7 +283,7 @@ class StyleActions:
             self.iface.messageBar().pushMessage(
                 self._tr("Update attribute settings"),
                 self._tr("No UmeMap layers in the project."),
-                level=Qgis.Info,
+                level=Qgis.MessageLevel.Info,
                 duration=5
             )
             return
@@ -297,7 +297,7 @@ class StyleActions:
         self.iface.messageBar().pushMessage(
             self._tr("Update attribute settings"),
             message,
-            level=Qgis.Success if updated == len(layers) else Qgis.Warning,
+            level=Qgis.MessageLevel.Success if updated == len(layers) else Qgis.MessageLevel.Warning,
             duration=5 if updated == len(layers) else 10
         )
 
