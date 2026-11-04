@@ -8,12 +8,17 @@ table too, although only "Parkdrift" is stored. Fields the server marks with the
 ``umemap_display`` option get a widget type that edits exactly like a value map but has
 no field formatter of its own, so the table, identify results and labels show the stored
 value while the form and the table editor still offer the hierarchical list.
+
+The widget type only exists while the plugin is loaded, so projects and styles are always
+written with the value map type; the ``umemap_display`` option is kept in the config, so the
+display is switched on again when the layer is loaded with the plugin.
 """
 
 from typing import Dict, List
 
 from qgis.core import QgsEditorWidgetSetup, QgsMapLayer, QgsProject, QgsVectorLayer
 from qgis.gui import QgsEditorWidgetFactory, QgsGui
+from qgis.PyQt.QtXml import QDomDocument, QDomElement
 
 from ...ui.utils import log
 
@@ -34,6 +39,10 @@ class StoredValueMapWidgetFactory(QgsEditorWidgetFactory):
 
     def configWidget(self, layer, fieldIdx, parent):
         return _value_map_factory().configWidget(layer, fieldIdx, parent)
+
+    def createSearchWidget(self, layer, fieldIdx, parent):
+        # Without this the base class gives a free text search, e.g. in "Select by value".
+        return _value_map_factory().createSearchWidget(layer, fieldIdx, parent)
 
     def fieldScore(self, layer, fieldIdx):
         # Never picked automatically; only fields marked by the server get this widget.
@@ -92,6 +101,30 @@ class StoredValueDisplay:
                     layer.setEditorWidgetSetup(index, QgsEditorWidgetSetup(VALUE_MAP_TYPE, setup.config()))
 
         self._switched.clear()
+
+    def on_write_map_layer(self, layer: QgsMapLayer, layer_element: QDomElement, _doc: QDomDocument) -> None:
+        """Write the switched fields as value maps in the project file, so it works without the plugin."""
+        # QgsProject.writeProject is emitted before the layers are written, so each layer
+        # element is changed when it is written instead.
+        if layer.id() in self._switched:
+            to_value_map_element(layer_element)
+
+
+def to_value_map_element(element: QDomElement) -> int:
+    """Change the widget type of the switched fields to value map in a layer or style element."""
+    changed = 0
+    widgets = element.elementsByTagName("editWidget")
+    for i in range(widgets.count()):
+        widget = widgets.at(i).toElement()
+        if widget.attribute("type") == WIDGET_TYPE:
+            widget.setAttribute("type", VALUE_MAP_TYPE)
+            changed += 1
+    return changed
+
+
+def to_value_map_style(xml_data: bytes) -> bytes:
+    """Change the widget type of the switched fields to value map in a saved QML style."""
+    return xml_data.replace(f'type="{WIDGET_TYPE}"'.encode(), f'type="{VALUE_MAP_TYPE}"'.encode())
 
 
 def _value_map_factory() -> QgsEditorWidgetFactory:

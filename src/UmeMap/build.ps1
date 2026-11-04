@@ -46,9 +46,10 @@ if ($latestTag) {
         # Produktions-build: exakt på tagg, bara taggens version
         $version = $tagVersion
     } else {
-        # Dev-build: efter tagg, PEP 440-dev-version (som QGIS jämför med) så att den
-        # räknas som nyare än taggen men äldre än nästa release
-        $version = "$major.$($minor + 1).dev$now"
+        # Dev-build: efter tagg, förhandsversion som räknas som nyare än taggen men äldre
+        # än nästa release. "alpha" och inte "dev": QGIS 3.40 och äldre känner inte igen
+        # dev och räknar då 1.1.dev<tid> som nyare än 1.1 (3.44+ jämför enligt PEP 440).
+        $version = "$major.$($minor + 1).alpha$now"
     }
 } else {
     Write-Host "  Ingen v*-tagg hittad. Ange version manuellt i metadata.txt" -ForegroundColor Red

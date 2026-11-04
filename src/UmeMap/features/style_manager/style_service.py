@@ -14,6 +14,7 @@ from qgis.PyQt.QtXml import QDomDocument
 from ...core.api_client import UmeMapApiClient, ApiResponse, parse_style_document
 from ...core.auth_manager import AuthManager
 from ...core.wfs_utils import parse_wfs_data_source
+from ..value_map_display import to_value_map_style
 from ...ui.utils import log
 
 
@@ -112,7 +113,8 @@ class StyleService:
         # Read QML file
         try:
             with open(qml_path, mode="rb") as xml_file:
-                xml_data = xml_file.read()
+                # The server style must work without the plugin, so no plugin widget types
+                xml_data = to_value_map_style(xml_file.read())
         except Exception as e:
             return ApiResponse(
                 status="error",

@@ -102,6 +102,7 @@ class UmeMap:
         QgsProject.instance().layerWasAdded.connect(self._field_linker_registry.register_layer)
         QgsProject.instance().layerWasAdded.connect(self._commit_refresher.register_layer)
         QgsProject.instance().layerWasAdded.connect(self._stored_value_display.apply)
+        QgsProject.instance().writeMapLayer.connect(self._stored_value_display.on_write_map_layer)
         self._commit_refresher.register_existing_layers()
         self._stored_value_display.register_existing_layers()
 
@@ -304,6 +305,10 @@ class UmeMap:
             pass
         try:
             QgsProject.instance().layerWasAdded.disconnect(self._stored_value_display.apply)
+        except Exception:  # nosec B110
+            pass
+        try:
+            QgsProject.instance().writeMapLayer.disconnect(self._stored_value_display.on_write_map_layer)
         except Exception:  # nosec B110
             pass
 
