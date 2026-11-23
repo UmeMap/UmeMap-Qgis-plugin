@@ -158,10 +158,17 @@ function Build-Zip {
     }
 
     # Compress-Archive saknar directory entries som QGIS kräver, använd Python istället
+    # Python-cache och andra genererade filer hoppas över: plugins.qgis.org
+    # avvisar paket som innehåller __pycache__
     python -c @"
 import zipfile, os
+EXCLUDED_DIRS = {'__pycache__', '.pytest_cache', '.mypy_cache', '.git'}
+EXCLUDED_EXTS = ('.pyc', '.pyo')
+EXCLUDED_FILES = {'.DS_Store', 'Thumbs.db'}
 with zipfile.ZipFile(r'$zipPath', 'w', zipfile.ZIP_DEFLATED) as zf:
     for root, dirs, files in os.walk('deploy'):
+        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
+        files = [f for f in files if not f.endswith(EXCLUDED_EXTS) and f not in EXCLUDED_FILES]
         for d in dirs:
             dir_path = os.path.join(root, d)
             arcname = os.path.relpath(dir_path, 'deploy') + '/'
