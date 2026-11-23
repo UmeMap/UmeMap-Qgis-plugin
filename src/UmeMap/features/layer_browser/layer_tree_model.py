@@ -11,6 +11,21 @@ from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem, QIcon
 from .wfs_source import WfsSource
 from .wfs_parser import WfsLayerInfo
 
+# Synthetic folder for layers without keywords (layers outside the map atlas).
+# Same name as in the web client.
+SPECIAL_FOLDER_NAME = "Specialanpassningar etc"
+
+# Tooltip explaining what the synthetic folder contains
+SPECIAL_FOLDER_TOOLTIP = (
+    "Lager som inte visas i mapparna ovan eftersom de är specifikt utformade "
+    "för sitt användningsområde, samt UmeMaps bakgrundskartor"
+)
+
+# Qt5: QIcon.Disabled, Qt6: QIcon.Mode.Disabled
+_ICON_MODE_DISABLED = getattr(QIcon, 'Disabled', None)
+if _ICON_MODE_DISABLED is None:
+    _ICON_MODE_DISABLED = QIcon.Mode.Disabled
+
 
 class ItemRole(IntEnum):
     """Custom data roles for tree items."""
@@ -36,7 +51,10 @@ class LayerTreeModel(QStandardItemModel):
       - Folder (from keywords path)
         - Subfolder
           - Layer
-      - Layer (without keywords)
+      - "Specialanpassningar etc" (grey icon, last; layers without keywords)
+        - Layer
+
+    Sources without any keyword folders show their layers flat under the source.
     """
 
     def __init__(self, parent=None):
@@ -148,7 +166,9 @@ class LayerTreeModel(QStandardItemModel):
 
         Sorting order:
         1. Folders first (with their layers), sorted alphabetically
-        2. Layers without keywords last, sorted alphabetically
+        2. Layers without keywords last, sorted alphabetically. If the source
+           has keyword folders, they go in a synthetic folder
+           (SPECIAL_FOLDER_NAME); otherwise directly under the source.
         """
         # Group layers by folder path
         folder_layers: Dict[str, List[WfsLayerInfo]] = {}
@@ -179,10 +199,61 @@ class LayerTreeModel(QStandardItemModel):
                 layer_item = self._create_layer_item(layer, source)
                 parent_item.appendRow(layer_item)
 
-        # 2. Add layers without keywords last (sorted alphabetically)
+        # 2. Add layers without keywords last (sorted alphabetically).
+        # Group them in a synthetic folder only when the source uses keyword
+        # folders; sources without keywords keep the flat layout.
+        root_parent = source_item
+        if root_layers and folder_layers:
+            root_parent = self._create_special_folder(source)
+            source_item.appendRow(root_parent)
+
         for layer in sorted(root_layers, key=lambda info: info.title):
             layer_item = self._create_layer_item(layer, source)
-            source_item.appendRow(layer_item)
+            root_parent.appendRow(layer_item)
+
+    def _create_special_folder(self, source: WfsSource) -> QStandardItem:
+        """
+        Create the synthetic folder (grey icon) for layers outside the map atlas.
+
+        The folder has the same roles as a keyword folder, so double-click,
+        "Add all layers" and search filtering work as usual. It is not
+        registered in the folder cache, so a real keyword folder with the
+        same name never collides with it.
+
+        Args:
+            source: WfsSource for metadata
+
+        Returns:
+            The folder item (not yet appended to the tree)
+        """
+        folder_item = QStandardItem(SPECIAL_FOLDER_NAME)
+        folder_item.setData('folder', ItemRole.ItemType)
+        folder_item.setData(source.id, ItemRole.SourceId)
+        folder_item.setData(source.url, ItemRole.WfsUrl)
+        folder_item.setData(source.authcfg, ItemRole.AuthCfg)
+        folder_item.setData(SPECIAL_FOLDER_NAME, ItemRole.FolderPath)
+        folder_item.setEditable(False)
+        folder_item.setToolTip(SPECIAL_FOLDER_TOOLTIP)
+
+        icon = self._grey_icon(self._icons.get('folder'))
+        if icon is not None:
+            folder_item.setIcon(icon)
+
+        return folder_item
+
+    @staticmethod
+    def _grey_icon(icon: Optional[QIcon]) -> Optional[QIcon]:
+        """Return a greyed-out copy of an icon, or None if there is no icon."""
+        if icon is None or icon.isNull():
+            return None
+
+        grey = QIcon()
+        for size in (16, 24, 32, 48):
+            pixmap = icon.pixmap(size, size, _ICON_MODE_DISABLED)
+            if not pixmap.isNull():
+                grey.addPixmap(pixmap)
+
+        return grey if not grey.isNull() else icon
 
     def _ensure_folder(self, source_item: QStandardItem, folder_path: str,
                        folder_items: Dict[str, QStandardItem], source: WfsSource) -> QStandardItem:
