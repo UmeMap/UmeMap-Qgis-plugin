@@ -21,11 +21,6 @@ SPECIAL_FOLDER_TOOLTIP = (
     "för sitt användningsområde, samt UmeMaps bakgrundskartor"
 )
 
-# Qt5: QIcon.Disabled, Qt6: QIcon.Mode.Disabled
-_ICON_MODE_DISABLED = getattr(QIcon, 'Disabled', None)
-if _ICON_MODE_DISABLED is None:
-    _ICON_MODE_DISABLED = QIcon.Mode.Disabled
-
 
 class ItemRole(IntEnum):
     """Custom data roles for tree items."""
@@ -249,7 +244,7 @@ class LayerTreeModel(QStandardItemModel):
 
         grey = QIcon()
         for size in (16, 24, 32, 48):
-            pixmap = icon.pixmap(size, size, _ICON_MODE_DISABLED)
+            pixmap = icon.pixmap(size, size, QIcon.Mode.Disabled)
             if not pixmap.isNull():
                 grey.addPixmap(pixmap)
 
