@@ -5,6 +5,7 @@
 [general]
 name=UmeMap layer management
 qgisMinimumVersion=3.0
+supportsQt6=True
 description=UmeMap layer management is a plugin which helps with styles for vector layers that come from a UmeMap server and form management
 version=0.10+20260401.1526
 author=UmeMap
