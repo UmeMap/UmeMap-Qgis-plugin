@@ -30,14 +30,13 @@ if (-not $qgisPluginPath) {
 # Auto-versioning från git-taggar
 # Versionen får inte innehålla +<datum>: plugins.qgis.org sorterar versioner som text
 # och fyller bara ut rena siffror, så 0.11+20261014 räknades som äldre än 0.9+20260317.
-$now = Get-Date -Format "yyyyMMddHHmm"
+# Versionen består bara av siffror (PEP 440) så att plugins.qgis.org och alla
+# QGIS-versioner sorterar rätt. Bygge efter en tagg = taggen + antal commits sedan
+# taggen, t.ex. v1.0 + 3 commits = 1.0.3.
 $latestTag = git describe --tags --abbrev=0 --match "v*" 2>$null
 
 if ($latestTag) {
     $tagVersion = $latestTag.TrimStart('v')
-    $parts = $tagVersion -split '\.'
-    $major = [int]$parts[0]
-    $minor = [int]$parts[1]
 
     # Kolla om HEAD är exakt på taggen
     $tagCommit = git rev-list -n 1 $latestTag
@@ -46,10 +45,9 @@ if ($latestTag) {
         # Produktions-build: exakt på tagg, bara taggens version
         $version = $tagVersion
     } else {
-        # Dev-build: efter tagg, förhandsversion som räknas som nyare än taggen men äldre
-        # än nästa release. "alpha" och inte "dev": QGIS 3.40 och äldre känner inte igen
-        # dev och räknar då 1.1.dev<tid> som nyare än 1.1 (3.44+ jämför enligt PEP 440).
-        $version = "$major.$($minor + 1).alpha$now"
+        # Dev-build: efter tagg, taggens version + antal commits sedan taggen
+        $count = git rev-list --count "$latestTag..HEAD"
+        $version = "$tagVersion.$count"
     }
 } else {
     Write-Host "  Ingen v*-tagg hittad. Ange version manuellt i metadata.txt" -ForegroundColor Red
@@ -101,6 +99,10 @@ function Compile-Resources {
         Write-Host "  pyrcc5 misslyckades. Kontrollera att pyrcc5 finns i PATH." -ForegroundColor Red
         exit 1
     }
+    # pyrcc5 importerar från PyQt5; qgis.PyQt fungerar med både Qt5 och Qt6
+    $resources = Get-Content "resources.py" -Raw
+    $resources = $resources -replace '(?m)^from PyQt5 import QtCore', 'from qgis.PyQt import QtCore'
+    Set-Content "resources.py" -Value $resources -NoNewline
 }
 
 function Deploy-ToQgis {

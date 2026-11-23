@@ -14,7 +14,7 @@ def show_error_popup(title: str, message: str) -> None:
     :param title: Dialog title
     :param message: Error message to display
     """
-    show_popup(title, message, QMessageBox.Critical)
+    show_popup(title, message, QMessageBox.Icon.Critical)
 
 
 def show_success_popup(title: str, message: str) -> None:
@@ -24,10 +24,10 @@ def show_success_popup(title: str, message: str) -> None:
     :param title: Dialog title
     :param message: Success message to display
     """
-    show_popup(title, message, QMessageBox.Information)
+    show_popup(title, message, QMessageBox.Icon.Information)
 
 
-def show_popup(title: str, message: str, icon=QMessageBox.Information) -> None:
+def show_popup(title: str, message: str, icon=QMessageBox.Icon.Information) -> None:
     """
     Display a popup dialog with the given icon type.
 
@@ -39,15 +39,15 @@ def show_popup(title: str, message: str, icon=QMessageBox.Information) -> None:
     msg_box.setIcon(icon)
     msg_box.setWindowTitle(title)
     msg_box.setText(message)
-    msg_box.exec_()
+    msg_box.exec()
 
 
-def log(message: str, level: Qgis.MessageLevel = Qgis.Info) -> None:
+def log(message: str, level: Qgis.MessageLevel = Qgis.MessageLevel.Info) -> None:
     """
     Write log messages to both console and QGIS log system.
 
     :param message: Message to log
-    :param level: Log level (Qgis.Info, Qgis.Warning, Qgis.Critical)
+    :param level: Log level (Qgis.MessageLevel.Info, Qgis.MessageLevel.Warning, Qgis.MessageLevel.Critical)
     """
     try:
         print(message)

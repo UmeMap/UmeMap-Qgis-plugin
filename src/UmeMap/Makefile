@@ -27,6 +27,7 @@ compile: $(COMPILED_RESOURCE_FILES)
 
 %.py : %.qrc $(RESOURCE_SRC)
 	pyrcc5 -o $@ $<
+	sed -i 's/^from PyQt5 import QtCore/from qgis.PyQt import QtCore/' $@
 
 deploy: compile
 	@echo "Deploying plugin to $(PLUGINDIR)"

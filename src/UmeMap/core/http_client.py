@@ -84,7 +84,7 @@ def _send(method: str, url: str, data: Optional[bytes], headers: Dict[str, str],
     for _ in range(MAX_REDIRECTS + 1):
         reply = _send_once(method, request_url, data, headers, timeout)
         try:
-            status = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+            status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
             status_code = int(status) if status else 0
             location = reply.rawHeader(b"Location").data().decode("utf-8", errors="ignore")
 
@@ -113,8 +113,8 @@ def _send_once(method: str, url: QUrl, data: Optional[bytes], headers: Dict[str,
     request = QNetworkRequest(url)
     for name, value in headers.items():
         request.setRawHeader(str(name).encode("utf-8"), str(value).encode("utf-8"))
-    request.setAttribute(QNetworkRequest.RedirectPolicyAttribute, QNetworkRequest.ManualRedirectPolicy)
-    request.setAttribute(QNetworkRequest.CacheLoadControlAttribute, QNetworkRequest.AlwaysNetwork)
+    request.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute, QNetworkRequest.RedirectPolicy.ManualRedirectPolicy)
+    request.setAttribute(QNetworkRequest.Attribute.CacheLoadControlAttribute, QNetworkRequest.CacheLoadControl.AlwaysNetwork)
     if hasattr(request, "setTransferTimeout"):  # Qt 5.15+
         request.setTransferTimeout(timeout * 1000)
 
@@ -124,7 +124,7 @@ def _send_once(method: str, url: QUrl, data: Optional[bytes], headers: Dict[str,
     if not reply.isFinished():
         loop = QEventLoop()
         reply.finished.connect(loop.quit)
-        loop.exec_(QEventLoop.ExcludeUserInputEvents)
+        loop.exec(QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents)
     return reply
 
 
