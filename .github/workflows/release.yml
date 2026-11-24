@@ -1,0 +1,268 @@
+# Bygger en ny version av pluginet från main, laddar upp den till
+# plugins.qgis.org (efter godkännande) och skapar en GitHub-release.
+#
+# Starta: Actions → Release → Run workflow, ange version (t.ex. 1.2).
+#
+# Kräver:
+# - Secret QGIS_PLUGIN_TOKEN i environmentet plugins-qgis
+#   (skapas på https://plugins.qgis.org/plugins/UmeMap/tokens/)
+# - Environmentet plugins-qgis med obligatorisk granskare, så att
+#   uppladdningen väntar på godkännande
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, t.ex. 1.2 (blir taggen v1.2)"
+        required: true
+        type: string
+      publish_to_qgis:
+        description: "Ladda upp till plugins.qgis.org"
+        required: true
+        type: boolean
+        default: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PLUGIN_NAME: UmeMap
+  PLUGIN_DIR: src/UmeMap
+
+jobs:
+  build:
+    name: Bygg ZIP
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      zip_name: ${{ steps.version.outputs.zip_name }}
+      sha: ${{ steps.version.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Kontrollera version
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${VERSION#v}"
+          # Bara siffror (PEP 440), annars sorterar plugins.qgis.org fel
+          if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]]; then
+            echo "::error::Versionen '$VERSION' måste vara siffror, t.ex. 1.2 eller 1.2.1"
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::Taggen v$VERSION finns redan"
+            exit 1
+          fi
+          LATEST=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || true)
+          if [ -n "$LATEST" ]; then
+            HIGHEST=$(printf '%s\n%s\n' "${LATEST#v}" "$VERSION" | sort -V | tail -1)
+            if [ "$HIGHEST" != "$VERSION" ] || [ "${LATEST#v}" = "$VERSION" ]; then
+              echo "::error::Versionen $VERSION måste vara högre än senaste taggen $LATEST"
+              exit 1
+            fi
+            if [ -z "$(git log --no-merges --format=%h "$LATEST..HEAD")" ]; then
+              echo "::error::Inga nya commits på main sedan $LATEST"
+              exit 1
+            fi
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "zip_name=$PLUGIN_NAME-$VERSION.zip" >> "$GITHUB_OUTPUT"
+          echo "latest_tag=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Sätt version och changelog i metadata.txt
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          LATEST_TAG: ${{ steps.version.outputs.latest_tag }}
+        run: |
+          RANGE="${LATEST_TAG:+$LATEST_TAG..}HEAD"
+          git log --no-merges "$RANGE" --pretty=format:"  - %s" > commits.txt
+          python3 - <<'EOF'
+          import os, re
+          version = os.environ["VERSION"]
+          path = os.path.join(os.environ["PLUGIN_DIR"], "metadata.txt")
+          commits = open("commits.txt", encoding="utf-8").read().strip("\n")
+          meta = open(path, encoding="utf-8").read()
+          meta = re.sub(r"(?m)^version=.*$", f"version={version}", meta)
+          if commits:
+              entry = f"changelog=\n  {version}\n{commits}"
+              meta = re.sub(r"(?ms)^changelog=.*?(?=\r?\n[#a-z])", lambda _: entry, meta)
+          open(path, "w", encoding="utf-8", newline="").write(meta)
+          EOF
+          grep -nE '^(version|qgisMinimumVersion|qgisMaximumVersion)=' "$PLUGIN_DIR/metadata.txt"
+
+      - name: Kompilera resurser
+        working-directory: ${{ env.PLUGIN_DIR }}
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q pyqt5-dev-tools
+          pyrcc5 -o resources.py resources.qrc
+          # pyrcc5 importerar från PyQt5; qgis.PyQt fungerar med både Qt5 och Qt6
+          sed -i 's/^from PyQt5 import QtCore/from qgis.PyQt import QtCore/' resources.py
+
+      - name: Packa ZIP
+        env:
+          ZIP_NAME: ${{ steps.version.outputs.zip_name }}
+        run: |
+          python3 - <<'EOF'
+          import os, shutil, zipfile
+          name = os.environ["PLUGIN_NAME"]
+          src = os.environ["PLUGIN_DIR"]
+          stage = os.path.join("build", name)
+          # Samma innehåll som pb_tool.cfg i build.ps1
+          files = ["__init__.py", "plugin.py", "UmeMap_dialog_base.ui",
+                   "resources.py", "metadata.txt", "icon.png"]
+          dirs = ["core", "features", "ui", "icons"]
+          os.makedirs(stage)
+          for f in files:
+              shutil.copy2(os.path.join(src, f), stage)
+          ignore = shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo",
+                                          ".pytest_cache", ".mypy_cache",
+                                          ".DS_Store", "Thumbs.db")
+          for d in dirs:
+              shutil.copytree(os.path.join(src, d), os.path.join(stage, d), ignore=ignore)
+          shutil.copy2("LICENSE", stage)
+          # Mappposter behövs, QGIS kräver dem
+          with zipfile.ZipFile(os.environ["ZIP_NAME"], "w", zipfile.ZIP_DEFLATED) as zf:
+              for root, subdirs, names in os.walk("build"):
+                  subdirs.sort()
+                  for d in subdirs:
+                      p = os.path.join(root, d)
+                      zf.write(p, os.path.relpath(p, "build") + "/")
+                  for f in sorted(names):
+                      p = os.path.join(root, f)
+                      zf.write(p, os.path.relpath(p, "build"))
+          EOF
+
+      - name: Kontrollera ZIP
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP_NAME: ${{ steps.version.outputs.zip_name }}
+        run: |
+          python3 - <<'EOF'
+          import os, sys, zipfile
+          name = os.environ["PLUGIN_NAME"]
+          z = zipfile.ZipFile(os.environ["ZIP_NAME"])
+          entries = z.namelist()
+          errors = []
+          bad = [e for e in entries if "__pycache__" in e or e.endswith((".pyc", ".pyo"))]
+          if bad:
+              errors.append(f"Förbjudna filer i ZIP: {bad[:5]}")
+          roots = {e.split("/")[0] for e in entries}
+          if roots != {name}:
+              errors.append(f"ZIP ska ha en enda rotmapp {name}/, har {sorted(roots)}")
+          meta = z.read(f"{name}/metadata.txt").decode("utf-8")
+          if f"version={os.environ['VERSION']}" not in meta.splitlines():
+              errors.append("version i metadata.txt stämmer inte")
+          for required in ("__init__.py", "metadata.txt", "resources.py", "LICENSE"):
+              if f"{name}/{required}" not in entries:
+                  errors.append(f"{required} saknas")
+          if z.testzip() is not None:
+              errors.append("ZIP-filen är trasig")
+          for e in errors:
+              print(f"::error::{e}")
+          print(f"{len(entries)} poster i {os.environ['ZIP_NAME']}")
+          sys.exit(1 if errors else 0)
+          EOF
+
+      - name: Skriv release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP_NAME: ${{ steps.version.outputs.zip_name }}
+        run: |
+          {
+            echo "## $PLUGIN_NAME $VERSION"
+            echo
+            echo "### Changes"
+            sed 's/^  - /- /' commits.txt
+            echo
+            echo
+            echo "### Installation"
+            echo "Download \`$ZIP_NAME\` and install via QGIS: **Plugins → Manage and Install Plugins → Install from ZIP**"
+          } > release-notes.md
+          cat release-notes.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-zip
+          path: |
+            ${{ steps.version.outputs.zip_name }}
+            release-notes.md
+          if-no-files-found: error
+
+  publish:
+    name: Ladda upp till plugins.qgis.org
+    needs: build
+    if: inputs.publish_to_qgis
+    runs-on: ubuntu-latest
+    environment:
+      name: plugins-qgis
+      url: https://plugins.qgis.org/plugins/UmeMap/
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-zip
+
+      - name: Ladda upp
+        env:
+          QGIS_PLUGIN_TOKEN: ${{ secrets.QGIS_PLUGIN_TOKEN }}
+          ZIP_NAME: ${{ needs.build.outputs.zip_name }}
+        run: |
+          if [ -z "$QGIS_PLUGIN_TOKEN" ]; then
+            echo "::error::Secret QGIS_PLUGIN_TOKEN saknas i environmentet plugins-qgis"
+            exit 1
+          fi
+          STATUS=$(curl -sS -o response.json -w '%{http_code}' \
+            -X POST "https://plugins.qgis.org/plugins/api/$PLUGIN_NAME/version/add/" \
+            -H "Authorization: Bearer $QGIS_PLUGIN_TOKEN" \
+            -A "UmeMap-release-workflow" \
+            -F "package=@$ZIP_NAME;type=application/zip" \
+            -F "auto_approve_after_scan=true")
+          echo "HTTP $STATUS"
+          cat response.json; echo
+          if [ "$STATUS" != "201" ]; then
+            echo "::error::Uppladdningen misslyckades (HTTP $STATUS)"
+            exit 1
+          fi
+
+  release:
+    name: Tagga och skapa GitHub-release
+    needs: [build, publish]
+    if: ${{ !cancelled() && needs.build.result == 'success' && (needs.publish.result == 'success' || needs.publish.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-zip
+
+      - name: Tagga och skapa release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+          ZIP_NAME: ${{ needs.build.outputs.zip_name }}
+          BUILD_SHA: ${{ needs.build.outputs.sha }}
+        run: |
+          # Taggen sätts på exakt den commit som byggdes, även om main har ändrats sedan
+          git tag "v$VERSION" "$BUILD_SHA"
+          git push origin "v$VERSION"
+          gh release create "v$VERSION" "$ZIP_NAME" \
+            --title "$PLUGIN_NAME $VERSION" \
+            --notes-file release-notes.md \
+            --latest
